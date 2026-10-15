@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('./model.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const { validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform, moveWallEndpoint, translateWall, splitWall, wallThickness } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 test('example survives file round trip', () => { const p = sample(); assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))), p); });
 test('reject incompatible and malformed files', () => { for (const p of [null, {}, { ...sample(), version: 99 }, { ...sample(), walls: [{ id: 'x', a: { x: 0, y: 0 }, b: { x: 0, y: 0 } }] }]) assert.throws(() => validatePlan(p)); });
 test('reject nonfinite geometry and duplicated identifiers', () => { const p = sample(); p.walls[0].a.x = Infinity; assert.throws(() => validatePlan(p)); const q = sample(); q.labels[0].id = q.walls[0].id; assert.throws(() => validatePlan(q)); });
@@ -16,7 +16,7 @@ test('project onto horizontal, vertical, diagonal segments', () => { assert.equa
 test('legacy v1 plans migrate without changing their walls or openings', () => {
   const { furniture, ...legacy } = sample(); legacy.version = 1;
   const migrated = validatePlan(JSON.parse(JSON.stringify(legacy)));
-  assert.equal(migrated.version, 3); assert.deepEqual(migrated.furniture, []);
+  assert.equal(migrated.version, 4); assert.deepEqual(migrated.furniture, []);
   assert.deepEqual(migrated.walls, legacy.walls); assert.deepEqual(migrated.openings, legacy.openings);
   assert.deepEqual(migrated.labels, legacy.labels);
 });
@@ -64,7 +64,7 @@ test('empty plans have a usable default viewport', () => {
 
 test('v2 plans migrate with furniture and the original door appearance', () => {
   const old = { ...sample(), version: 2 };
-  const next = validatePlan(old); assert.equal(next.version, 3);
+  const next = validatePlan(old); assert.equal(next.version, 4);
   assert.deepEqual(next.furniture, old.furniture); assert.deepEqual(next.openings, old.openings);
   assert.deepEqual(doorTransform(next.openings[0]), { x: 1, y: 1 });
 });
@@ -113,4 +113,65 @@ test('invalid rectangle sizes and coordinates do not mutate the plan', () => {
   for (const b of [{x:0,y:2},{x:.4,y:3},{x:101,y:3},{x:Infinity,y:3},{x:2,y:NaN}]) assert.throws(()=>addRectangle(p,{x:0,y:0},b));
   assert.throws(()=>addRectangle(p,{x:999,y:999},{x:1002,y:1002}));
   assert.equal(p.walls.length,0); assert.equal(p.labels.length,0);
+});
+
+
+function simpleWall() {
+  return { ...emptyPlan(), walls:[{id:'wall',a:{x:0,y:0},b:{x:6,y:0},thickness:.2}],openings:[{id:'left',wallId:'wall',t:1/6,width:.8,kind:'door',hinge:'end',swing:'positive'},{id:'right',wallId:'wall',t:5/6,width:1,kind:'window'}] };
+}
+function openingPosition(p,o) { const w=p.walls.find(w=>w.id===o.wallId);return {x:w.a.x+(w.b.x-w.a.x)*o.t,y:w.a.y+(w.b.y-w.a.y)*o.t}; }
+test('v3 migrates with legacy thickness and accepts explicit thickness',()=>{
+  const p={...sample(),version:3};const next=validatePlan(p);assert.equal(next.version,4);assert.equal(wallThickness(next.walls[0]),.105);
+  const explicit=simpleWall();assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(explicit))),explicit);
+  for(const thickness of [0,.049,.601,NaN,'15',null]){const bad=simpleWall();bad.walls[0].thickness=thickness;assert.throws(()=>validatePlan(bad));}
+});
+test('moving B retains opening distances from stationary A',()=>{
+  const p=simpleWall();const next=moveWallEndpoint(p,'wall','b',{x:8,y:0});
+  assert.deepEqual(next.openings.map(o=>openingPosition(next,o)),[{x:1,y:0},{x:5,y:0}]);
+  const diagonal=moveWallEndpoint(p,'wall','b',{x:6,y:8});
+  assert.ok(Math.abs(distance(diagonal.walls[0].a,openingPosition(diagonal,diagonal.openings[1]))-5)<1e-9);
+  assert.equal(diagonal.openings[0].hinge,'end');assert.equal(diagonal.openings[0].swing,'positive');
+});
+test('moving A retains opening distances from stationary B',()=>{
+  const p=simpleWall();const next=moveWallEndpoint(p,'wall','a',{x:-2,y:0});
+  assert.deepEqual(next.openings.map(o=>openingPosition(next,o)),[{x:1,y:0},{x:5,y:0}]);
+});
+test('shared endpoints move together without moving the other ends',()=>{
+  const p=simpleWall();p.walls.push({id:'neighbor',a:{x:6,y:0},b:{x:6,y:4}});
+  const next=moveWallEndpoint(p,'wall','b',{x:8,y:0});
+  assert.deepEqual(next.walls[1].a,{x:8,y:0});assert.deepEqual(next.walls[1].b,{x:6,y:4});assert.equal(p.walls[1].a.x,6);
+});
+test('wall translation moves its openings by the same displacement',()=>{
+  const p=simpleWall();const next=translateWall(p,'wall',{x:2,y:3});
+  assert.deepEqual(next.openings.map(o=>openingPosition(next,o)),[{x:3,y:3},{x:7,y:3}]);
+});
+test('impossible shortening and overlapping wall movements are atomic',()=>{
+  const p=simpleWall();const before=JSON.stringify(p);
+  assert.throws(()=>moveWallEndpoint(p,'wall','b',{x:4,y:0}));assert.equal(JSON.stringify(p),before);
+  assert.throws(()=>moveWallEndpoint(p,'wall','b',{x:0,y:0}));
+  const q=emptyPlan();q.walls=[{id:'a',a:{x:0,y:0},b:{x:2,y:0}},{id:'b',a:{x:3,y:0},b:{x:5,y:0}}];
+  assert.throws(()=>moveWallEndpoint(q,'a','b',{x:4,y:0}),/superpone/);
+});
+test('splitting preserves opening world coordinates, orientation and wall thickness',()=>{
+  const p=simpleWall();const next=splitWall(p,'wall',3);
+  assert.equal(next.walls.length,2);assert.equal(next.walls[0].id,'wall');assert.deepEqual(next.walls[0].b,next.walls[1].a);
+  assert.deepEqual(next.openings.map(o=>openingPosition(next,o)),p.openings.map(o=>openingPosition(p,o)));
+  assert.notEqual(next.openings[0].wallId,next.openings[1].wallId);assert.ok(next.walls.every(w=>w.thickness===.2));
+  assert.equal(next.openings[0].hinge,'end');assert.equal(next.openings[0].swing,'positive');
+  assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(next))),next);
+});
+test('splitting diagonal and reverse-directed walls keeps opening positions',()=>{
+  for(const [a,b] of [[{x:6,y:8},{x:0,y:0}],[{x:0,y:0},{x:6,y:8}]]){
+    const p=simpleWall();p.walls[0].a=a;p.walls[0].b=b;const next=splitWall(p,'wall',5);
+    for(let i=0;i<p.openings.length;i++)assert.ok(distance(openingPosition(p,p.openings[i]),openingPosition(next,next.openings[i]))<1e-9);
+  }
+});
+test('cuts through openings, invalid distances and tiny fragments are rejected',()=>{
+  const p=simpleWall();const before=JSON.stringify(p);
+  for(const at of [NaN,Infinity,-1,0,.19,5.81,6,1,1.41,5])assert.throws(()=>splitWall(p,'wall',at));
+  assert.equal(JSON.stringify(p),before);
+});
+test('bounds account for thick wall strokes',()=>{
+  const p=emptyPlan();p.walls=[{id:'w',a:{x:0,y:0},b:{x:4,y:0},thickness:.6}];const b=planBounds(p,0);
+  assert.equal(b.x,-.3);assert.equal(b.y,-.3);assert.ok(Math.abs(b.width-4.6)<1e-9);assert.equal(b.height,.6);
 });
