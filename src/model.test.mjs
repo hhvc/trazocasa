@@ -175,3 +175,20 @@ test('bounds account for thick wall strokes',()=>{
   const p=emptyPlan();p.walls=[{id:'w',a:{x:0,y:0},b:{x:4,y:0},thickness:.6}];const b=planBounds(p,0);
   assert.equal(b.x,-.3);assert.equal(b.y,-.3);assert.ok(Math.abs(b.width-4.6)<1e-9);assert.equal(b.height,.6);
 });
+
+test('T junction follows a tilted supporting wall',()=>{
+  const p=emptyPlan();p.walls=[{id:'main',a:{x:0,y:0},b:{x:6,y:0}},{id:'branch',a:{x:3,y:0},b:{x:3,y:4}}];
+  const next=moveWallEndpoint(p,'main','b',{x:6,y:2});
+  assert.ok(project(next.walls[1].a,next.walls[0]).distance<1e-9);
+  assert.ok(Math.abs(distance(next.walls[0].a,next.walls[1].a)-3)<1e-9);
+  assert.deepEqual(next.walls[1].b,{x:3,y:4});
+});
+test('sample bathroom remains attached when the exterior wall tilts',()=>{
+  const next=moveWallEndpoint(sample(),'w1','b',{x:9,y:0});
+  assert.ok(project(next.walls.find(w=>w.id==='w6').b,next.walls.find(w=>w.id==='w2')).distance<1e-9);
+});
+test('T junction may slide along its parent but cannot detach silently',()=>{
+  const p=emptyPlan();p.walls=[{id:'main',a:{x:0,y:0},b:{x:6,y:0}},{id:'branch',a:{x:3,y:0},b:{x:3,y:4}}];
+  assert.throws(()=>moveWallEndpoint(p,'branch','a',{x:3,y:1}),/unión en T/);
+  assert.deepEqual(moveWallEndpoint(p,'branch','a',{x:4,y:0}).walls[1].a,{x:4,y:0});
+});

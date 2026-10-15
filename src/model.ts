@@ -131,6 +131,48 @@ const samePoint = (a: Point, b: Point) => distance(a, b) < 1e-6;
 /** Preserve opening offsets from the stationary endpoint; translation retains t. */
 function applyWallGeometry(plan: Plan, walls: Wall[]): Plan {
   const originals = new Map(plan.walls.map(w => [w.id, w]));
+  // Follow existing T junctions when their supporting wall moves.
+  walls = walls.map(w=>({...w,a:{...w.a},b:{...w.b}}));
+  const byId = new Map(walls.map(w=>[w.id,w]));
+  const explicit: Point[] = [];
+  const pending: string[] = [];
+  for(const w of walls) {
+    const old=originals.get(w.id)!;
+    for(const end of ['a','b'] as const) if(!samePoint(w[end],old[end])) explicit.push(old[end]);
+    if(!samePoint(w.a,old.a)||!samePoint(w.b,old.b)) pending.push(w.id);
+  }
+  const visited=new Set<string>();
+  while(pending.length) {
+    const id=pending.shift()!;
+    if(visited.has(id)) continue;
+    visited.add(id);
+    const old=originals.get(id)!, next=byId.get(id)!;
+    const length=distance(next.a,next.b), oldLength=distance(old.a,old.b);
+    if(length<.2-1e-9) throw new Error('Cada tramo debe conservar al menos 20 cm.');
+    for(const child of plan.walls) for(const end of ['a','b'] as const) {
+      const node=child[end];
+      if(child.id===id||explicit.some(p=>samePoint(p,node))) continue;
+      const connection=project(node,old);
+      if(connection.distance>1e-6||connection.t<=1e-6||connection.t>=1-1e-6) continue;
+      const aFixed=samePoint(old.a,next.a), bFixed=samePoint(old.b,next.b);
+      const t=aFixed&&!bFixed?connection.t*oldLength/length:bFixed&&!aFixed?1-(1-connection.t)*oldLength/length:connection.t;
+      if(t<0||t>1) throw new Error('El movimiento dejaría una unión en T fuera de su pared.');
+      const point={x:next.a.x+(next.b.x-next.a.x)*t,y:next.a.y+(next.b.y-next.a.y)*t};
+      for(const original of plan.walls) {
+        const changedWall=byId.get(original.id)!;
+        let updated=false;
+        for(const edge of ['a','b'] as const) if(samePoint(original[edge],node)&&!samePoint(changedWall[edge],point)){changedWall[edge]={...point};updated=true;}
+        if(updated)pending.push(original.id);
+      }
+    }
+  }
+  const affected=walls.filter(w=>!samePoint(w.a,originals.get(w.id)!.a)||!samePoint(w.b,originals.get(w.id)!.b));
+  for(const child of affected) for(const end of ['a','b'] as const) for(const parent of plan.walls) {
+    if(parent.id===child.id)continue;
+    const prior=project(originals.get(child.id)![end],parent);
+    if(prior.distance>1e-6||prior.t<=1e-6||prior.t>=1-1e-6)continue;
+    if(project(child[end],byId.get(parent.id)!).distance>1e-6)throw new Error('Ese extremo pertenece a una unión en T. Deslizalo sobre la pared o dividí la pared principal antes de mover la unión.');
+  }
   const changed = walls.filter(w => !samePoint(w.a, originals.get(w.id)!.a) || !samePoint(w.b, originals.get(w.id)!.b));
   for (const w of changed) {
     const length = distance(w.a, w.b);

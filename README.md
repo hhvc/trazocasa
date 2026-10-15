@@ -31,13 +31,13 @@ Las paredes unidas comparten el movimiento de sus extremos. Las puertas y ventan
 
 Autoguardado local en `localStorage`, con recuperación al recargar y manejo de errores. Se eligió para este prototipo pequeño sin imágenes; migrar a IndexedDB al agregar proyectos múltiples y recursos. Descargar el archivo crea una copia independiente; el almacenamiento del navegador puede eliminarse. No hay sincronización ni carga remota de planos. Abrir y crear proyectos se pueden deshacer. Los archivos importados se validan (versión, geometría, límites y aberturas).
 
-Los nuevos archivos usan formato v3, con muebles y orientación de puertas. Los archivos v1 y v2 se migran al abrirlos sin alterar la geometría, las etiquetas ni el aspecto de sus puertas. Las versiones anteriores del editor no pueden abrir archivos v3.
+Los nuevos archivos usan formato v4, con espesor de paredes, muebles y orientación de puertas. Los archivos v1, v2 y v3 se migran al abrirlos conservando su geometría y apariencia. Las versiones anteriores del editor no pueden abrir archivos v4.
 
 Exportación SVG y PNG (hasta 2400 px en el lado mayor), encuadrando paredes, arcos de puertas, textos y muebles girados, incluso fuera de la vivienda. El PNG incluye fondo claro; no exporta la cuadrícula ni los controles de selección.
 
 ## Alcance
 
-Una planta; paredes rectas; puertas, ventanas, etiquetas y muebles. Compatible con mouse y eventos táctiles, con diseño adaptable. Sin Firebase, cuentas, métricas, donaciones ni servicios remotos configurados. La fuente de Google Fonts es opcional y tiene fuentes de sistema de respaldo.
+Una planta; paredes rectas; puertas, ventanas, etiquetas y muebles. Compatible con mouse y eventos táctiles, con diseño adaptable. Hosting configurado con Firebase. Sin cuentas, métricas, donaciones ni sincronización remota de planos. La fuente de Google Fonts es opcional y tiene fuentes de sistema de respaldo.
 
 No incluye todavía PDF, detección automática de ambientes/superficies, resolución de intersecciones de paredes, pinch-to-zoom ni documentación técnica de obra. La apariencia del trazo es esquemática; los datos conservan geometría precisa. Las longitudes mostradas corresponden al eje de las paredes.
 
@@ -65,3 +65,15 @@ Las medidas corresponden a ejes de paredes, no a superficie útil. Las paredes y
 Al seleccionar una puerta, **Cambiar lado de apertura** refleja el arco al otro lado de la pared y **Cambiar bisagra** intercambia el extremo de giro. Ambas opciones se combinan, participan del historial y se conservan en archivos, autoguardado, SVG y PNG.
 
 La suite `npm test` incluye compatibilidad v1/v2, las cuatro orientaciones de puertas, creación de rectángulos, paredes compartidas con aberturas y rechazo atómico de geometría inválida.
+
+## Edición de paredes (0.4)
+
+Al seleccionar una pared aparecen sus extremos **A** y **B**. Arrastrarlos modifica la geometría y mantiene las esquinas compartidas y los encuentros en T existentes. Un extremo que termina sobre otra pared puede deslizarse sobre ella; para separarlo en otra dirección, primero dividí la pared principal en ese encuentro. No se resuelven automáticamente intersecciones nuevas.
+
+Las puertas y ventanas mantienen su distancia al extremo fijo cuando cambia la longitud; al trasladar una pared completa, acompañan el desplazamiento. Se rechazan cambios que produzcan aberturas fuera de la pared, superposiciones o tramos demasiado cortos.
+
+- **Espesor:** editable entre 5 y 60 cm. Las paredes nuevas usan 15 cm; las antiguas sin espesor explícito conservan su apariencia de 10,5 cm. Se refleja en el lienzo, SVG y PNG.
+- **Dividir pared:** ingresar la distancia en metros desde A. Conserva el espesor y la posición y orientación de las aberturas. Cada tramo debe medir al menos 20 cm; el corte debe dejar 2,5 cm de separación con puertas y ventanas.
+- Los cambios participan de deshacer/rehacer, autoguardado y archivos `.trazocasa`.
+
+Las longitudes siguen representando ejes de paredes, no medidas interiores útiles. El espesor es una propiedad gráfica y no implica verificación constructiva.
