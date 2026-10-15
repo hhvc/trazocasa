@@ -1,6 +1,34 @@
+# Dependencias y archivos generados
 node_modules/
 dist/
+*.tsbuildinfo
+
+# Variables de entorno y configuracion local
 *.local
 .env*
 !.env.example
-*.tsbuildinfo
+
+# Cache y logs de Firebase
+/.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+database-debug.log*
+
+# Logs de herramientas
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Copias locales de skills instaladas
+# Conservar skills-lock.json para identificar sus fuentes y versiones.
+/.agents/skills/
+/.claude/skills/
+/.claude/settings.local.json
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+Desktop.ini
