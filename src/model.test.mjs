@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('./model.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const { validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 test('example survives file round trip', () => { const p = sample(); assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))), p); });
 test('reject incompatible and malformed files', () => { for (const p of [null, {}, { ...sample(), version: 99 }, { ...sample(), walls: [{ id: 'x', a: { x: 0, y: 0 }, b: { x: 0, y: 0 } }] }]) assert.throws(() => validatePlan(p)); });
 test('reject nonfinite geometry and duplicated identifiers', () => { const p = sample(); p.walls[0].a.x = Infinity; assert.throws(() => validatePlan(p)); const q = sample(); q.labels[0].id = q.walls[0].id; assert.throws(() => validatePlan(q)); });
@@ -16,11 +16,11 @@ test('project onto horizontal, vertical, diagonal segments', () => { assert.equa
 test('legacy v1 plans migrate without changing their walls or openings', () => {
   const { furniture, ...legacy } = sample(); legacy.version = 1;
   const migrated = validatePlan(JSON.parse(JSON.stringify(legacy)));
-  assert.equal(migrated.version, 2); assert.deepEqual(migrated.furniture, []);
+  assert.equal(migrated.version, 3); assert.deepEqual(migrated.furniture, []);
   assert.deepEqual(migrated.walls, legacy.walls); assert.deepEqual(migrated.openings, legacy.openings);
   assert.deepEqual(migrated.labels, legacy.labels);
 });
-test('v2 files require an explicit furniture collection', () => {
+test('modern files require an explicit furniture collection', () => {
   const p = sample(); delete p.furniture; assert.throws(() => validatePlan(p));
   for (const furniture of [null, {}, 'bed']) assert.throws(() => validatePlan({ ...sample(), furniture }));
 });
@@ -59,4 +59,58 @@ test('a furniture-only project frames tightly and round-trips', () => {
 });
 test('empty plans have a usable default viewport', () => {
   const b = planBounds(emptyPlan()); assert.ok(b.width > 0 && b.height > 0);
+});
+
+
+test('v2 plans migrate with furniture and the original door appearance', () => {
+  const old = { ...sample(), version: 2 };
+  const next = validatePlan(old); assert.equal(next.version, 3);
+  assert.deepEqual(next.furniture, old.furniture); assert.deepEqual(next.openings, old.openings);
+  assert.deepEqual(doorTransform(next.openings[0]), { x: 1, y: 1 });
+});
+test('doors retain all four orientations through file round trips', () => {
+  for (const hinge of ['start', 'end']) for (const swing of ['negative', 'positive']) {
+    const p = sample(); Object.assign(p.openings[0], {hinge, swing});
+    const next = validatePlan(JSON.parse(JSON.stringify(p)));
+    assert.equal(next.openings[0].hinge, hinge); assert.equal(next.openings[0].swing, swing);
+    assert.deepEqual(doorTransform(next.openings[0]), { x: hinge === 'end' ? -1 : 1, y: swing === 'positive' ? -1 : 1 });
+  }
+});
+test('invalid door orientation is rejected without changing the source', () => {
+  for (const change of [{hinge:'unknown'}, {swing:1}, {hinge:null}, {swing:null}]) {
+    const p = sample(); Object.assign(p.openings[0], change); assert.throws(() => validatePlan(p));
+  }
+});
+test('rectangle creates four connected walls and one centered name', () => {
+  const before = emptyPlan(); const p = addRectangle(before, {x:0,y:0}, {x:4,y:3}, ' Cocina ');
+  assert.equal(before.walls.length, 0); assert.equal(p.walls.length, 4); assert.equal(p.labels.length, 1);
+  for(let i=0;i<4;i++) assert.deepEqual(p.walls[i].b,p.walls[(i+1)%4].a);
+  assert.deepEqual(p.walls.map(w=>distance(w.a,w.b)),[4,3,4,3]);
+  assert.equal(p.labels[0].text,'Cocina'); assert.equal(p.labels[0].x,2); assert.equal(p.labels[0].y,1.5);
+  assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))),p);
+});
+test('rectangle accepts all corner directions with identical geometry', () => {
+  for (const [a,b] of [[{x:4,y:3},{x:0,y:0}],[{x:0,y:3},{x:4,y:0}],[{x:4,y:0},{x:0,y:3}]]) {
+    const p = addRectangle(emptyPlan(),a,b);
+    assert.deepEqual(p.walls[0].a,{x:0,y:0}); assert.deepEqual(p.walls[2].a,{x:4,y:3});
+  }
+});
+test('adjacent rooms reuse the shared wall and retain its opening', () => {
+  const p = addRectangle(emptyPlan(),{x:0,y:0},{x:4,y:3});
+  const shared = p.walls[1]; p.openings.push({id:'shared-door',wallId:shared.id,t:.5,width:.8,kind:'door',hinge:'end',swing:'positive'});
+  const next = addRectangle(p,{x:4,y:0},{x:8,y:3},'Dormitorio');
+  assert.equal(next.walls.length,7); assert.equal(next.labels.length,2);
+  assert.deepEqual(next.openings,p.openings); assert.deepEqual(next.walls.find(w=>w.id===shared.id),shared);
+});
+test('partial wall overlaps and duplicate rectangles fail atomically', () => {
+  const p = addRectangle(emptyPlan(),{x:0,y:0},{x:4,y:3}); const snapshot=JSON.stringify(p);
+  assert.throws(()=>addRectangle(p,{x:4,y:1},{x:7,y:4}),/superpone parcialmente/);
+  assert.throws(()=>addRectangle(p,{x:0,y:0},{x:4,y:3}),/ya existen/);
+  assert.equal(JSON.stringify(p),snapshot);
+});
+test('invalid rectangle sizes and coordinates do not mutate the plan', () => {
+  const p = emptyPlan();
+  for (const b of [{x:0,y:2},{x:.4,y:3},{x:101,y:3},{x:Infinity,y:3},{x:2,y:NaN}]) assert.throws(()=>addRectangle(p,{x:0,y:0},b));
+  assert.throws(()=>addRectangle(p,{x:999,y:999},{x:1002,y:1002}));
+  assert.equal(p.walls.length,0); assert.equal(p.labels.length,0);
 });
