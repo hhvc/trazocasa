@@ -1,4 +1,5 @@
 export type Point = { x: number; y: number };
+export type Surface = { id: string; name: string; points: Point[] };
 export type Dimension = { id: string; a: Point; b: Point; offset: number };
 export type Wall = { id: string; a: Point; b: Point; thickness?: number };
 export type Opening = { id: string; wallId: string; t: number; width: number; kind: 'door' | 'window'; hinge?: 'start' | 'end'; swing?: 'negative' | 'positive' };
@@ -13,7 +14,7 @@ export const furnitureCatalog: { kind: FurnitureKind; name: string; width: numbe
   { kind: 'wardrobe', name: 'Placard', width: 1.8, depth: .6 },
   { kind: 'toilet', name: 'Inodoro', width: .4, depth: .7 },
 ];
-export type Plan = { format: 'trazocasa'; version: 5; dimensions: Dimension[]; name: string; walls: Wall[]; openings: Opening[]; labels: Label[]; furniture: Furniture[] };
+export type Plan = { format: 'trazocasa'; version: 6; surfaces: Surface[]; dimensions: Dimension[]; name: string; walls: Wall[]; openings: Opening[]; labels: Label[]; furniture: Furniture[] };
 export const uid = () => crypto.randomUUID();
 export const distance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y);
 export const snap = (n: number) => Math.round(n * 10) / 10;
@@ -34,19 +35,24 @@ export function fitOpening(plan: Plan, wall: Wall, t: number, width: number, ign
 export function validatePlan(value: unknown): Plan {
   if (!value || typeof value !== 'object') throw new Error('El archivo no contiene un proyecto válido.');
   const p = value as Omit<Plan, 'version'> & { version: number };
+  const surfaces = p.version < 6 ? [] : p.surfaces;
   const dimensions = p.version < 5 ? [] : p.dimensions;
   const furniture = p.version === 1 ? [] : p.furniture;
   const finite = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= 1000;
   const point = (v: Point) => v && finite(v.x) && finite(v.y);
-  if (p.format !== 'trazocasa' || ![1, 2, 3, 4, 5].includes(p.version) || typeof p.name !== 'string' || p.name.length > 100 || !Array.isArray(p.walls) || !Array.isArray(p.openings) || !Array.isArray(p.labels) || p.walls.length > 2000 || p.openings.length > 2000 || p.labels.length > 500 || !Array.isArray(furniture) || furniture.length > 500 || !Array.isArray(dimensions) || dimensions.length > 500) throw new Error('Formato incompatible. Elegí un archivo .trazocasa de versión 1, 2, 3, 4 o 5.');
+  if (p.format !== 'trazocasa' || ![1, 2, 3, 4, 5, 6].includes(p.version) || typeof p.name !== 'string' || p.name.length > 100 || !Array.isArray(p.walls) || !Array.isArray(p.openings) || !Array.isArray(p.labels) || p.walls.length > 2000 || p.openings.length > 2000 || p.labels.length > 500 || !Array.isArray(furniture) || furniture.length > 500 || !Array.isArray(dimensions) || dimensions.length > 500 || !Array.isArray(surfaces) || surfaces.length > 200) throw new Error('Formato incompatible. Elegí un archivo .trazocasa de versión 1, 2, 3, 4, 5 o 6.');
   const ids = new Set<string>();
-  for (const o of [...p.walls, ...p.openings, ...p.labels, ...furniture, ...dimensions]) {
+  for (const o of [...p.walls, ...p.openings, ...p.labels, ...furniture, ...dimensions, ...surfaces]) {
     if (!o || typeof o.id !== 'string' || !o.id || ids.has(o.id)) throw new Error('El proyecto contiene identificadores inválidos.');
     ids.add(o.id);
   }
   for (const w of p.walls) if (!point(w.a) || !point(w.b) || distance(w.a, w.b) < .2 - 1e-9 || (w.thickness !== undefined && (!finite(w.thickness) || w.thickness < .05 || w.thickness > .6))) throw new Error('El proyecto contiene paredes inválidas.');
   for (const d of dimensions) if (!point(d.a) || !point(d.b) || distance(d.a,d.b) < .1 - 1e-9 || !finite(d.offset) || Math.abs(d.offset) > 100) throw new Error("El proyecto contiene cotas inválidas.");
-  const checked: Plan = { ...p, version: 5, dimensions, furniture, openings: [] };
+  for (const s of surfaces) {
+    if (typeof s.name !== 'string' || !s.name.trim() || s.name.length > 80) throw new Error('El nombre de la superficie no es válido.');
+    validateSurface(s.points);
+  }
+  const checked: Plan = { ...p, version: 6, surfaces, dimensions, furniture, openings: [] };
   for (const o of p.openings) {
     const w = p.walls.find(w => w.id === o.wallId);
     if (!w || !finite(o.t) || !finite(o.width) || !['door', 'window'].includes(o.kind)) throw new Error('El proyecto contiene aberturas inválidas.');
@@ -59,18 +65,18 @@ export function validatePlan(value: unknown): Plan {
   for (const f of furniture) {
     if (!point(f) || !furnitureCatalog.some(item => item.kind === f.kind) || !finite(f.width) || !finite(f.depth) || f.width < .2 || f.width > 10 || f.depth < .2 || f.depth > 10 || !finite(f.rotation) || f.rotation < 0 || f.rotation >= 360) throw new Error('El proyecto contiene muebles inválidos.');
   }
-  return { format: 'trazocasa', version: 5, dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
+  return { format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y}))})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
 }
 export function sample(): Plan {
   const wall = (id: string, x: number, y: number, x2: number, y2: number): Wall => ({ id, a: { x, y }, b: { x: x2, y: y2 } });
-  return { format: 'trazocasa', version: 5, dimensions: [], name: 'Mi primera casa', furniture: [
+  return { format: 'trazocasa', version: 6, surfaces: [], dimensions: [], name: 'Mi primera casa', furniture: [
     { id: 'f1', kind: 'bed', x: 6.4, y: 1.5, width: 1.6, depth: 2, rotation: 0 },
     { id: 'f2', kind: 'sofa', x: 2.2, y: .75, width: 2.1, depth: .9, rotation: 0 },
     { id: 'f3', kind: 'table', x: 2.4, y: 4.2, width: 1.6, depth: .9, rotation: 0 },
     { id: 'f4', kind: 'toilet', x: 7.3, y: 4.25, width: .4, depth: .7, rotation: 0 },
   ], walls: [wall('w1', 0, 0, 8, 0), wall('w2', 8, 0, 8, 6), wall('w3', 8, 6, 0, 6), wall('w4', 0, 6, 0, 0), wall('w5', 4.8, 0, 4.8, 6), wall('w6', 4.8, 3.6, 8, 3.6)], openings: [{ id: 'd1', wallId: 'w3', t: .72, width: 1, kind: 'door' }, { id: 'd2', wallId: 'w5', t: .35, width: .8, kind: 'door' }, { id: 'd3', wallId: 'w5', t: .78, width: .8, kind: 'door' }, { id: 'v1', wallId: 'w1', t: .28, width: 1.8, kind: 'window' }, { id: 'v2', wallId: 'w1', t: .8, width: 1.4, kind: 'window' }, { id: 'v3', wallId: 'w2', t: .8, width: .9, kind: 'window' }, { id: 'v4', wallId: 'w4', t: .5, width: 1.6, kind: 'window' }], labels: [{ id: 'l1', x: 2.4, y: 3, text: 'Estar · comedor' }, { id: 'l2', x: 6.4, y: 3, text: 'Dormitorio' }, { id: 'l3', x: 6.4, y: 4.8, text: 'Baño' }] };
 }
-export const emptyPlan = (): Plan => ({ format: 'trazocasa', version: 5, dimensions: [], name: 'Mi nuevo proyecto', furniture: [], walls: [], openings: [], labels: [] });
+export const emptyPlan = (): Plan => ({ format: 'trazocasa', version: 6, surfaces: [], dimensions: [], name: 'Mi nuevo proyecto', furniture: [], walls: [], openings: [], labels: [] });
 
 /** The four corners of a rotated furniture footprint, in metres. */
 export function furnitureCorners(f: Furniture): Point[] {
@@ -84,6 +90,7 @@ export function furnitureCorners(f: Furniture): Point[] {
 export function planBounds(p: Plan, padding = .7) {
   const points = p.walls.flatMap(w => { const r = wallThickness(w) / 2; return [w.a, w.b].flatMap(p => [{ x: p.x - r, y: p.y - r }, { x: p.x + r, y: p.y + r }]); });
   p.labels.forEach(l => { const half = Math.max(.8, l.text.length * .085); points.push({ x: l.x - half, y: l.y - .3 }, { x: l.x + half, y: l.y + .3 }); });
+  p.surfaces.forEach(s => { points.push(...s.points); const c=surfaceLabel(s.points), half=Math.max(.8,s.name.length*.085); points.push({x:c.x-half,y:c.y-.4},{x:c.x+half,y:c.y+.4}); });
   p.dimensions.forEach(d => { const g=dimensionGeometry(d); points.push(d.a,d.b); for(const p of [g.a,g.b,g.label]) points.push({x:p.x-1,y:p.y-1},{x:p.x+1,y:p.y+1}); });
   p.furniture.forEach(f => points.push(...furnitureCorners(f)));
   p.openings.filter(o => o.kind === 'door').forEach(o => {
@@ -242,4 +249,43 @@ export function dimensionGeometry(d: Dimension) {
 }
 export function addDimension(plan: Plan, a: Point, b: Point, position: Point): Plan {
  return validatePlan({...plan,dimensions:[...plan.dimensions,{id:uid(),a,b,offset:dimensionOffset(a,b,position)}]});
+}
+
+/** Shoelace formula; vertex order does not change the reported area. */
+export function surfaceArea(points: Point[]): number {
+  return Math.abs(points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p.x*q.y-q.x*p.y;},0))/2;
+}
+export function validateSurface(points: Point[]): void {
+  if (!Array.isArray(points) || points.length<3 || points.length>100 || points.some(p=>!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) || Math.abs(p.x)>1000 || Math.abs(p.y)>1000)) throw new Error('La superficie necesita entre 3 y 100 puntos válidos.');
+  const cross=(a:Point,b:Point,c:Point)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+  const on=(a:Point,b:Point,p:Point)=>Math.abs(cross(a,b,p))<1e-8 && p.x>=Math.min(a.x,b.x)-1e-8 && p.x<=Math.max(a.x,b.x)+1e-8 && p.y>=Math.min(a.y,b.y)-1e-8 && p.y<=Math.max(a.y,b.y)+1e-8;
+  for(let i=0;i<points.length;i++) {
+    const a=points[i],b=points[(i+1)%points.length],c=points[(i+2)%points.length];
+    if(distance(a,b)<.1-1e-9) throw new Error('Cada lado debe medir al menos 10 cm.');
+    if(Math.abs(cross(a,b,c))<1e-8 && (b.x-a.x)*(c.x-b.x)+(b.y-a.y)*(c.y-b.y)<0) throw new Error('El contorno no puede volver sobre un mismo lado.');
+    for(let j=i+1;j<points.length;j++) {
+      if(j===i+1 || (i===0 && j===points.length-1)) continue;
+      const c=points[j],d=points[(j+1)%points.length];
+      if(on(a,b,c)||on(a,b,d)||on(c,d,a)||on(c,d,b)||(cross(a,b,c)*cross(a,b,d)<0 && cross(c,d,a)*cross(c,d,b)<0)) throw new Error('El contorno se cruza o se toca. Revisá sus puntos.');
+    }
+  }
+  if(surfaceArea(points)<.01-1e-9) throw new Error('La superficie debe ser de al menos 0,01 m².');
+}
+/** Pick an interior scanline interval, including for concave rooms. */
+export function surfaceLabel(points: Point[]): Point {
+  const ys=[...new Set(points.map(p=>p.y))].sort((a,b)=>a-b);
+  let best={x:points[0].x,y:points[0].y}, width=-1;
+  for(let k=1;k<ys.length;k++) {
+    const y=(ys[k-1]+ys[k])/2, xs:number[]=[];
+    for(let i=0;i<points.length;i++) {
+      const a=points[i],b=points[(i+1)%points.length];
+      if((a.y>y)!==(b.y>y)) xs.push(a.x+(y-a.y)*(b.x-a.x)/(b.y-a.y));
+    }
+    xs.sort((a,b)=>a-b);
+    for(let i=0;i+1<xs.length;i+=2) if(xs[i+1]-xs[i]>width) {width=xs[i+1]-xs[i];best={x:(xs[i]+xs[i+1])/2,y};}
+  }
+  return best;
+}
+export function addSurface(plan: Plan, points: Point[], name='Ambiente'): Plan {
+  return validatePlan({...plan,surfaces:[...plan.surfaces,{id:uid(),name:name.trim()||'Ambiente',points}]});
 }

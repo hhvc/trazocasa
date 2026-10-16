@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('./model.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { addDimension, dimensionGeometry, dimensionOffset, validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform, moveWallEndpoint, translateWall, splitWall, wallThickness } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const { addSurface, surfaceArea, surfaceLabel, validateSurface, addDimension, dimensionGeometry, dimensionOffset, validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform, moveWallEndpoint, translateWall, splitWall, wallThickness } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 test('example survives file round trip', () => { const p = sample(); assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))), p); });
 test('reject incompatible and malformed files', () => { for (const p of [null, {}, { ...sample(), version: 99 }, { ...sample(), walls: [{ id: 'x', a: { x: 0, y: 0 }, b: { x: 0, y: 0 } }] }]) assert.throws(() => validatePlan(p)); });
 test('reject nonfinite geometry and duplicated identifiers', () => { const p = sample(); p.walls[0].a.x = Infinity; assert.throws(() => validatePlan(p)); const q = sample(); q.labels[0].id = q.walls[0].id; assert.throws(() => validatePlan(q)); });
@@ -16,7 +16,7 @@ test('project onto horizontal, vertical, diagonal segments', () => { assert.equa
 test('legacy v1 plans migrate without changing their walls or openings', () => {
   const { furniture, ...legacy } = sample(); legacy.version = 1;
   const migrated = validatePlan(JSON.parse(JSON.stringify(legacy)));
-  assert.equal(migrated.version, 5); assert.deepEqual(migrated.furniture, []);
+  assert.equal(migrated.version, 6); assert.deepEqual(migrated.furniture, []);
   assert.deepEqual(migrated.walls, legacy.walls); assert.deepEqual(migrated.openings, legacy.openings);
   assert.deepEqual(migrated.labels, legacy.labels);
 });
@@ -64,7 +64,7 @@ test('empty plans have a usable default viewport', () => {
 
 test('v2 plans migrate with furniture and the original door appearance', () => {
   const old = { ...sample(), version: 2 };
-  const next = validatePlan(old); assert.equal(next.version, 5);
+  const next = validatePlan(old); assert.equal(next.version, 6);
   assert.deepEqual(next.furniture, old.furniture); assert.deepEqual(next.openings, old.openings);
   assert.deepEqual(doorTransform(next.openings[0]), { x: 1, y: 1 });
 });
@@ -121,7 +121,7 @@ function simpleWall() {
 }
 function openingPosition(p,o) { const w=p.walls.find(w=>w.id===o.wallId);return {x:w.a.x+(w.b.x-w.a.x)*o.t,y:w.a.y+(w.b.y-w.a.y)*o.t}; }
 test('v3 migrates with legacy thickness and accepts explicit thickness',()=>{
-  const p={...sample(),version:3};const next=validatePlan(p);assert.equal(next.version,5);assert.equal(wallThickness(next.walls[0]),.105);
+  const p={...sample(),version:3};const next=validatePlan(p);assert.equal(next.version,6);assert.equal(wallThickness(next.walls[0]),.105);
   const explicit=simpleWall();assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(explicit))),explicit);
   for(const thickness of [0,.049,.601,NaN,'15',null]){const bad=simpleWall();bad.walls[0].thickness=thickness;assert.throws(()=>validatePlan(bad));}
 });
@@ -216,4 +216,42 @@ test('framing includes detached dimension lines and endpoints',()=>{
 test('manual dimensions stay independent when walls change',()=>{
  const p=addDimension(sample(),{x:0,y:0},{x:8,y:0},{x:0,y:-1});
  assert.deepEqual(moveWallEndpoint(p,'w1','b',{x:9,y:0}).dimensions,p.dimensions);
+});
+
+const rectangle=[{x:0,y:0},{x:4,y:0},{x:4,y:3},{x:0,y:3}];
+test('surfaces calculate rectangle, triangle and concave areas in either direction',()=>{
+ const l=[{x:0,y:0},{x:4,y:0},{x:4,y:1},{x:1,y:1},{x:1,y:4},{x:0,y:4}];
+ for(const [points,area] of [[rectangle,12],[[{x:0,y:0},{x:4,y:0},{x:0,y:3}],6],[l,7]]){
+ validateSurface(points);assert.equal(surfaceArea(points),area);assert.equal(surfaceArea([...points].reverse()),area);
+ }
+ assert.equal(surfaceArea(rectangle.map(p=>({x:p.x-20,y:p.y-10}))),12);
+});
+test('crossings, repeated points, backtracking, tiny areas and malformed contours reject',()=>{
+ for(const points of [[],rectangle.slice(0,2),[{x:0,y:0},{x:4,y:3},{x:0,y:3},{x:4,y:0}], [...rectangle,rectangle[0]], [{x:0,y:0},{x:4,y:0},{x:2,y:0},{x:0,y:3}], [{x:0,y:0},{x:1,y:0},{x:2,y:0}], [{x:0,y:0},{x:1,y:0},{x:1,y:.001}], [null,...rectangle], [{x:NaN,y:0},...rectangle], [{x:1001,y:0},...rectangle],Array(101).fill({x:0,y:0})])assert.throws(()=>validateSurface(points));
+});
+test('nonadjacent touching edges reject, straight forward vertices remain valid',()=>{
+ assert.throws(()=>validateSurface([{x:0,y:0},{x:4,y:0},{x:4,y:4},{x:2,y:0},{x:0,y:4}]));
+ validateSurface([{x:0,y:0},{x:2,y:0},{x:4,y:0},{x:4,y:3},{x:0,y:3}]);
+});
+test('surface label is inside a concave contour whose center lies outside',()=>{
+ const p=[{x:0,y:0},{x:5,y:0},{x:5,y:1},{x:1,y:1},{x:1,y:5},{x:0,y:5}];
+ const c=surfaceLabel(p);assert.ok(c.x>0&&c.y>0);assert.ok((c.x<5&&c.y<1)||(c.x<1&&c.y<5));
+});
+test('surfaces round trip, clone source points, preserve names and frame labels',()=>{
+ const points=rectangle.map(p=>({...p})),p=addSurface(emptyPlan(),points,'Estar');points[0].x=90;
+ assert.equal(p.surfaces[0].points[0].x,0);assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))),p);
+ const bounds=planBounds(p,0);assert.ok(bounds.x<=0&&bounds.x+bounds.width>=4&&bounds.y+bounds.height>=3);
+});
+test('v5 migrates without surfaces and v6 requires valid surfaces',()=>{
+ const old=sample();delete old.surfaces;old.version=5;assert.deepEqual(validatePlan(old).surfaces,[]);
+ old.version=6;assert.throws(()=>validatePlan(old));
+ for(const surfaces of [null,{},'bad'])assert.throws(()=>validatePlan({...sample(),surfaces}));
+});
+test('surface ids, names and collection limits are validated atomically',()=>{
+ const base=sample(),p=addSurface(base,rectangle);assert.equal(base.surfaces.length,0);
+ for(const patch of [{id:'w1'},{name:''},{name:'a'.repeat(81)},{points:[]}])assert.throws(()=>validatePlan({...p,surfaces:[{...p.surfaces[0],...patch}]}));
+ assert.throws(()=>validatePlan({...p,surfaces:Array.from({length:201},(_,i)=>({...p.surfaces[0],id:'s'+i}))}));
+});
+test('surface annotations remain independent of wall movement',()=>{
+ const p=addSurface(sample(),rectangle);assert.deepEqual(moveWallEndpoint(p,'w1','b',{x:9,y:0}).surfaces,p.surfaces);
 });

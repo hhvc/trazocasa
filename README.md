@@ -31,7 +31,7 @@ Las paredes unidas comparten el movimiento de sus extremos. Las puertas y ventan
 
 Autoguardado local en `localStorage`, con recuperación al recargar y manejo de errores. Se eligió para este prototipo pequeño sin imágenes; migrar a IndexedDB al agregar proyectos múltiples y recursos. Descargar el archivo crea una copia independiente; el almacenamiento del navegador puede eliminarse. No hay sincronización ni carga remota de planos. Abrir y crear proyectos se pueden deshacer. Los archivos importados se validan (versión, geometría, límites y aberturas).
 
-Los nuevos archivos usan formato v5, con espesor de paredes, muebles y orientación de puertas. Los archivos v1, v2, v3 y v4 se migran al abrirlos conservando su geometría y apariencia. Las versiones anteriores del editor no pueden abrir archivos v5.
+Los nuevos archivos usan formato v6, con espesor de paredes, muebles y orientación de puertas. Los archivos v1, v2, v3, v4 y v5 se migran al abrirlos conservando su geometría y apariencia. Las versiones anteriores del editor no pueden abrir archivos v6.
 
 Exportación SVG y PNG (hasta 2400 px en el lado mayor), encuadrando paredes, arcos de puertas, textos y muebles girados, incluso fuera de la vivienda. El PNG incluye fondo claro; no exporta la cuadrícula ni los controles de selección.
 
@@ -39,7 +39,7 @@ Exportación SVG y PNG (hasta 2400 px en el lado mayor), encuadrando paredes, ar
 
 Una planta; paredes rectas; puertas, ventanas, etiquetas y muebles. Compatible con mouse y eventos táctiles, con diseño adaptable. Hosting configurado con Firebase. Sin cuentas, métricas, donaciones ni sincronización remota de planos. La fuente de Google Fonts es opcional y tiene fuentes de sistema de respaldo.
 
-No incluye todavía PDF, detección automática de ambientes/superficies, resolución de intersecciones de paredes, pinch-to-zoom ni documentación técnica de obra. La apariencia del trazo es esquemática; los datos conservan geometría precisa. Las longitudes mostradas corresponden al eje de las paredes.
+No incluye todavía PDF, detección automática de ambientes, resolución de intersecciones de paredes, pinch-to-zoom ni documentación técnica de obra. La apariencia del trazo es esquemática; los datos conservan geometría precisa. Las longitudes mostradas corresponden al eje de las paredes.
 
 ## Verificación del modelo
 
@@ -86,3 +86,16 @@ Elegí **Cota (C)** y marcá tres puntos: inicio, final y ubicación de la líne
 Al seleccionar una cota, arrastrá A/B para cambiar sus puntos o la línea para ajustar su separación. El panel permite ingresar la separación en metros, con coma o punto; los valores negativos cambian el lado. Se admiten longitudes desde 10 cm, separaciones entre -100 y 100 m y hasta 500 cotas por proyecto.
 
 Son anotaciones independientes: no siguen automáticamente las paredes al modificarlas. Participan de deshacer/rehacer, eliminación, autoguardado y archivos. Se incluyen en SVG y PNG aunque se oculten las medidas automáticas de paredes. El encuadre incluye las cotas exteriores. El formato v5 conserva compatibilidad de lectura con v1–v4; editores anteriores no abren archivos v5.
+
+
+## Superficies manuales (0.6)
+
+Elegí **Superficie (S)** y marcá los vértices en orden. Cerrá tocando el primer punto, con **Cerrar superficie** o Enter. **Quitar último punto** y Retroceso corrigen el trazado; Escape o Cancelar lo descartan sin modificar el plano. Se admiten de 3 a 100 vértices y hasta 200 superficies por proyecto.
+
+Se calcula el área de contornos simples, incluidos los cóncavos. Se rechazan lados menores a 10 cm, superficies menores a 0,01 m², cruces y contactos del contorno consigo mismo. No se admiten huecos interiores.
+
+Seleccioná el nombre o el relleno para editarlo. El panel permite renombrar; arrastrar el contorno o el nombre mueve la superficie, y los círculos ajustan sus vértices recalculando los m². Los cambios inválidos se cancelan al soltar. El nombre y el área se incluyen en SVG y PNG, y el encuadre contempla las superficies exteriores.
+
+El área corresponde exactamente al contorno manual: si se eligen ejes de paredes, no representa superficie útil interior. No se descuentan espesores, no se detectan ambientes automáticamente y los contornos no siguen cambios en paredes. Las superficies pueden superponerse y no se suman como total de la vivienda. Crear una Habitación rectangular sigue creando paredes y una etiqueta; para medirla se utiliza Superficie.
+
+Formato v6: guarda superficies y lee archivos v1–v5. Las cotas, superficies y demás elementos participan del autoguardado, archivos y deshacer/rehacer.
