@@ -4,14 +4,27 @@ export type Dimension = { id: string; a: Point; b: Point; offset: number };
 export type Wall = { id: string; a: Point; b: Point; thickness?: number };
 export type Opening = { id: string; wallId: string; t: number; width: number; kind: 'door' | 'window'; hinge?: 'start' | 'end'; swing?: 'negative' | 'positive' };
 export type Label = { id: string; x: number; y: number; text: string };
-export type FurnitureKind = 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet';
+export type FurnitureKind = 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer';
 export type Furniture = { id: string; kind: FurnitureKind; x: number; y: number; width: number; depth: number; rotation: number };
 export const furnitureCatalog: { kind: FurnitureKind; name: string; width: number; depth: number }[] = [
+  { kind: 'tv', name: 'Televisor', width: 1.2, depth: .3 },
+  { kind: 'bathtub', name: 'Bañera', width: .7, depth: 1.7 },
+  { kind: 'roundCoffeeTable', name: 'Mesa ratona redonda', width: .8, depth: .8 },
+  { kind: 'armchair', name: 'Sillón individual', width: .85, depth: .85 },
+  { kind: 'fridge', name: 'Heladera', width: .7, depth: .7 },
+  { kind: 'stove', name: 'Cocina', width: .6, depth: .6 },
+  { kind: 'washer', name: 'Lavarropas', width: .6, depth: .65 },
+  { kind: 'singleBed', name: 'Cama simple', width: .9, depth: 1.9 },
   { kind: 'bed', name: 'Cama doble', width: 1.6, depth: 2 },
   { kind: 'sofa', name: 'Sofá', width: 2.1, depth: .9 },
+  { kind: 'sofa3', name: 'Sofá de 3 cuerpos', width: 2.4, depth: .95 },
+  { kind: 'chair', name: 'Silla', width: .45, depth: .5 },
   { kind: 'table', name: 'Mesa', width: 1.6, depth: .9 },
   { kind: 'desk', name: 'Escritorio', width: 1.2, depth: .6 },
   { kind: 'wardrobe', name: 'Placard', width: 1.8, depth: .6 },
+  { kind: 'bidet', name: 'Bidet', width: .36, depth: .55 },
+  { kind: 'bathroomSink', name: 'Bacha de baño', width: .6, depth: .45 },
+  { kind: 'kitchenSink', name: 'Bacha de cocina', width: .8, depth: .5 },
   { kind: 'toilet', name: 'Inodoro', width: .4, depth: .7 },
 ];
 export type Plan = { format: 'trazocasa'; version: 6; surfaces: Surface[]; dimensions: Dimension[]; name: string; walls: Wall[]; openings: Opening[]; labels: Label[]; furniture: Furniture[] };
@@ -63,6 +76,7 @@ export function validatePlan(value: unknown): Plan {
   }
   for (const l of p.labels) if (!point(l) || typeof l.text !== 'string' || l.text.length > 80) throw new Error('El proyecto contiene etiquetas inválidas.');
   for (const f of furniture) {
+    if (f.kind === 'roundCoffeeTable' && f.width !== f.depth) throw new Error('La mesa redonda debe tener un único diámetro.');
     if (!point(f) || !furnitureCatalog.some(item => item.kind === f.kind) || !finite(f.width) || !finite(f.depth) || f.width < .2 || f.width > 10 || f.depth < .2 || f.depth > 10 || !finite(f.rotation) || f.rotation < 0 || f.rotation >= 360) throw new Error('El proyecto contiene muebles inválidos.');
   }
   return { format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y}))})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };

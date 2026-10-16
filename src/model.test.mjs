@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('./model.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { addSurface, surfaceArea, surfaceLabel, validateSurface, addDimension, dimensionGeometry, dimensionOffset, validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform, moveWallEndpoint, translateWall, splitWall, wallThickness } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const { furnitureCatalog, addSurface, surfaceArea, surfaceLabel, validateSurface, addDimension, dimensionGeometry, dimensionOffset, validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform, moveWallEndpoint, translateWall, splitWall, wallThickness } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 test('example survives file round trip', () => { const p = sample(); assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))), p); });
 test('reject incompatible and malformed files', () => { for (const p of [null, {}, { ...sample(), version: 99 }, { ...sample(), walls: [{ id: 'x', a: { x: 0, y: 0 }, b: { x: 0, y: 0 } }] }]) assert.throws(() => validatePlan(p)); });
 test('reject nonfinite geometry and duplicated identifiers', () => { const p = sample(); p.walls[0].a.x = Infinity; assert.throws(() => validatePlan(p)); const q = sample(); q.labels[0].id = q.walls[0].id; assert.throws(() => validatePlan(q)); });
@@ -254,4 +254,27 @@ test('surface ids, names and collection limits are validated atomically',()=>{
 });
 test('surface annotations remain independent of wall movement',()=>{
  const p=addSurface(sample(),rectangle);assert.deepEqual(moveWallEndpoint(p,'w1','b',{x:9,y:0}).surfaces,p.surfaces);
+});
+
+test('expanded furniture catalog survives resize, rotation and file round trip',()=>{
+ const kinds=['bidet','bathroomSink','kitchenSink','chair','singleBed','sofa3'];
+ const p=emptyPlan();
+ for(const [i,kind] of kinds.entries()) {
+   const item=furnitureCatalog.find(f=>f.kind===kind);assert.ok(item);
+   p.furniture.push({id:'new-'+i,kind,x:i*3,y:-4,width:item.width,depth:item.depth,rotation:90});
+ }
+ assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))),p);
+ const resized={...p,furniture:p.furniture.map(f=>({...f,width:f.width+.1,depth:f.depth+.2,rotation:37}))};
+ assert.deepEqual(validatePlan(resized),resized);
+ const bounds=planBounds(resized,0);
+ for(const f of resized.furniture)for(const corner of furnitureCorners(f))assert.ok(corner.x>=bounds.x&&corner.x<=bounds.x+bounds.width+1e-9&&corner.y>=bounds.y&&corner.y<=bounds.y+bounds.height+1e-9);
+});
+
+test('seven additional furniture types round trip with editable footprints',()=>{
+ const p=emptyPlan();
+ for(const [i,kind] of ['tv','bathtub','roundCoffeeTable','armchair','fridge','stove','washer'].entries()) {
+ const c=furnitureCatalog.find(f=>f.kind===kind);assert.ok(c);p.furniture.push({id:'extra'+i,kind,x:i*2,y:0,width:c.width,depth:c.depth,rotation:90});
+ }assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))),p);
+ const table=p.furniture.find(f=>f.kind==='roundCoffeeTable');table.width=1.2;table.depth=1.2;assert.deepEqual(validatePlan(p),p);
+ table.depth=.8;assert.throws(()=>validatePlan(p),/diámetro/);
 });

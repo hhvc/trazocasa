@@ -99,3 +99,15 @@ Seleccioná el nombre o el relleno para editarlo. El panel permite renombrar; ar
 El área corresponde exactamente al contorno manual: si se eligen ejes de paredes, no representa superficie útil interior. No se descuentan espesores, no se detectan ambientes automáticamente y los contornos no siguen cambios en paredes. Las superficies pueden superponerse y no se suman como total de la vivienda. Crear una Habitación rectangular sigue creando paredes y una etiqueta; para medirla se utiliza Superficie.
 
 Formato v6: guarda superficies y lee archivos v1–v5. Las cotas, superficies y demás elementos participan del autoguardado, archivos y deshacer/rehacer.
+
+
+## Catálogo ampliado (0.7)
+
+Se agregan bidet (0,36 × 0,55 m), bacha de baño (0,60 × 0,45 m), bacha de cocina con escurridor (0,80 × 0,50 m), silla (0,45 × 0,50 m), cama simple (0,90 × 1,90 m) y sofá de tres cuerpos (2,40 × 0,95 m). Son dimensiones iniciales orientativas y editables. Todos admiten movimiento, giro, duplicado, eliminación, historial, guardado y exportación SVG/PNG. Los símbolos son vistas superiores esquemáticas; no incluyen espacios de circulación ni conexiones sanitarias.
+
+Se mantiene el formato v6. Los planos existentes conservan sus muebles; las versiones del editor anteriores a 0.7 no reconocen los seis tipos nuevos.
+
+
+## Catálogo ampliado (0.8)
+
+Televisor con base (1,20 × 0,30 m), bañera (0,70 × 1,70 m), mesa ratona redonda (diámetro 0,80 m), sillón individual (0,85 × 0,85 m), heladera (0,70 × 0,70 m), cocina de cuatro hornallas (0,60 × 0,60 m) y lavarropas de carga superior (0,60 × 0,65 m). Dimensiones orientativas editables; el televisor incluye su base y no representa pulgadas de pantalla. La mesa tiene un único diámetro y se rechazan archivos que la deformen en elipse. Todos conservan movimiento, rotación, duplicado, historial, guardado y exportaciones. Se mantiene formato v6; editores anteriores a 0.8 no reconocen estos siete tipos nuevos.
