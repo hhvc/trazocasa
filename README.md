@@ -31,13 +31,13 @@ Las paredes unidas comparten el movimiento de sus extremos. Las puertas y ventan
 
 Autoguardado local en `localStorage`, con recuperación al recargar y manejo de errores. Se eligió para este prototipo pequeño sin imágenes; migrar a IndexedDB al agregar proyectos múltiples y recursos. Descargar el archivo crea una copia independiente; el almacenamiento del navegador puede eliminarse. No hay sincronización ni carga remota de planos. Abrir y crear proyectos se pueden deshacer. Los archivos importados se validan (versión, geometría, límites y aberturas).
 
-Los nuevos archivos usan formato v6, con espesor de paredes, muebles y orientación de puertas. Los archivos v1, v2, v3, v4 y v5 se migran al abrirlos conservando su geometría y apariencia. Las versiones anteriores del editor no pueden abrir archivos v6.
+Los nuevos archivos usan formato v7, con espesor de paredes, muebles y orientación de puertas. Los archivos v1, v2, v3, v4, v5 y v6 se migran al abrirlos conservando su geometría y apariencia. Las versiones anteriores del editor no pueden abrir archivos v7.
 
 Exportación SVG y PNG (hasta 2400 px en el lado mayor), encuadrando paredes, arcos de puertas, textos y muebles girados, incluso fuera de la vivienda. El PNG incluye fondo claro; no exporta la cuadrícula ni los controles de selección.
 
 ## Alcance
 
-Una planta; paredes rectas; puertas, ventanas, etiquetas y muebles. Compatible con mouse y eventos táctiles, con diseño adaptable. Hosting configurado con Firebase. Sin cuentas, métricas, donaciones ni sincronización remota de planos. La fuente de Google Fonts es opcional y tiene fuentes de sistema de respaldo.
+Hasta 20 plantas; paredes rectas; puertas, ventanas, etiquetas y muebles. Compatible con mouse y eventos táctiles, con diseño adaptable. Hosting configurado con Firebase. Sin cuentas, métricas, donaciones ni sincronización remota de planos. La fuente de Google Fonts es opcional y tiene fuentes de sistema de respaldo.
 
 No incluye todavía PDF, detección automática de ambientes, resolución de intersecciones de paredes, pinch-to-zoom ni documentación técnica de obra. La apariencia del trazo es esquemática; los datos conservan geometría precisa. Las longitudes mostradas corresponden al eje de las paredes.
 
@@ -116,3 +116,16 @@ Televisor con base (1,20 × 0,30 m), bañera (0,70 × 1,70 m), mesa ratona redon
 ## Cabecera compacta (0.9)
 
 Se unifican las dos barras superiores en una cabecera de 56 px (52 px en móvil). El nombre permanece editable; Menú reúne Nuevo, Abrir, Guardar archivo, exportaciones y ayuda. El desplegable se superpone al editor, se cierra al elegir una acción, tocar fuera o pulsar Escape, y se recorre con Tab. Guardar sigue disponible con Ctrl/Cmd S cuando el menú está cerrado.
+
+
+## Plantas y escaleras (0.10)
+
+El selector sobre el lienzo cambia de planta. El botón + abre la administración: crear una planta superior en blanco, copiar solo las paredes de la planta activa (sin aberturas) o duplicarla completa, renombrar y eliminar con confirmación. Siempre se conserva al menos una planta; máximo 20. Las nuevas plantas se agregan al final de la lista y comparten coordenadas, sin vínculos entre sus elementos.
+
+El botón **Inferior** muestra paredes y escaleras de la planta inmediatamente anterior como referencia tenue, sin edición ni exportación. La vista conserva posición y zoom al cambiar de planta; Encuadrar plano ajusta la planta activa.
+
+En Muebles se incorpora **Escalera recta**, inicialmente 1 × 3 m, con ancho, largo (Fondo), giro y duplicado editables. La flecha indica subida. Es un símbolo 2D: el número de peldaños dibujados es ilustrativo, sin cálculo de altura, huella, contrahuella, descansos, huecos o conexión estructural entre plantas. Colocá su representación en cada piso que la necesite.
+
+El formato v7 guarda todas las plantas y la selección activa. Los archivos v1–v6 se migran a Planta baja conservando sus datos. El contenido de cada planta utiliza el esquema de geometría v6. El historial es del proyecto completo: deshacer/rehacer restaura ediciones y plantas eliminadas. Cambiar de planta por sí solo no agrega un paso al historial. Al crear un proyecto nuevo se reemplaza el proyecto completo, recuperable con Deshacer.
+
+Guardar archivo y autoguardado incluyen todas las plantas; SVG/PNG exportan únicamente la planta activa y su nombre aparece en el archivo. Se admiten archivos de hasta 20 MB; el almacenamiento del navegador mantiene su propio límite, y se avisa si no puede guardar.

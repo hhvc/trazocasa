@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('./model.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { furnitureCatalog, addSurface, surfaceArea, surfaceLabel, validateSurface, addDimension, dimensionGeometry, dimensionOffset, validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform, moveWallEndpoint, translateWall, splitWall, wallThickness } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const { buildingFromPlan, validateBuilding, activeFloorPlan, replaceFloorPlan, addFloor, renameFloor, removeFloor, furnitureCatalog, addSurface, surfaceArea, surfaceLabel, validateSurface, addDimension, dimensionGeometry, dimensionOffset, validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform, moveWallEndpoint, translateWall, splitWall, wallThickness } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 test('example survives file round trip', () => { const p = sample(); assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))), p); });
 test('reject incompatible and malformed files', () => { for (const p of [null, {}, { ...sample(), version: 99 }, { ...sample(), walls: [{ id: 'x', a: { x: 0, y: 0 }, b: { x: 0, y: 0 } }] }]) assert.throws(() => validatePlan(p)); });
 test('reject nonfinite geometry and duplicated identifiers', () => { const p = sample(); p.walls[0].a.x = Infinity; assert.throws(() => validatePlan(p)); const q = sample(); q.labels[0].id = q.walls[0].id; assert.throws(() => validatePlan(q)); });
@@ -277,4 +277,50 @@ test('seven additional furniture types round trip with editable footprints',()=>
  }assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))),p);
  const table=p.furniture.find(f=>f.kind==='roundCoffeeTable');table.width=1.2;table.depth=1.2;assert.deepEqual(validatePlan(p),p);
  table.depth=.8;assert.throws(()=>validatePlan(p),/diámetro/);
+});
+
+test('legacy single-floor projects migrate to Planta baja preserving all geometry',()=>{
+ for(const version of [1,2,3,4,5,6]){
+ const old={...sample(),version};const b=validateBuilding(old);
+ assert.equal(b.version,7);assert.equal(b.floors.length,1);assert.equal(b.floors[0].name,'Planta baja');assert.equal(b.activeFloorId,b.floors[0].id);
+ assert.deepEqual(b.floors[0].plan,validatePlan(old));
+ }
+});
+test('adding blank, walls-only and complete floors preserves source independently',()=>{
+ const base=buildingFromPlan(sample()), snapshot=JSON.stringify(base);
+ for(const mode of ['blank','walls','copy']){
+ const next=addFloor(base,'Primer piso',mode),p=activeFloorPlan(next);
+ assert.equal(next.floors.length,2);assert.equal(next.floors[1].id,next.activeFloorId);
+ assert.equal(p.walls.length,mode==='blank'?0:6);assert.equal(p.openings.length,mode==='copy'?7:0);assert.equal(p.furniture.length,mode==='copy'?4:0);
+ if(p.walls.length)p.walls[0].a.x=99;
+ assert.equal(JSON.stringify(base),snapshot);
+ }
+});
+test('editing an upper floor never changes the lower floor even with shared copied ids',()=>{
+ const b=addFloor(buildingFromPlan(sample()),'Alta','copy'), before=JSON.stringify(b.floors[0]);
+ const p=activeFloorPlan(b), edited={...p,walls:p.walls.map(w=>({...w,thickness:.3}))};
+ const next=replaceFloorPlan(b,edited);assert.equal(JSON.stringify(next.floors[0]),before);assert.equal(next.floors[1].plan.walls[0].thickness,.3);assert.equal(b.floors[1].plan.walls[0].thickness,undefined);
+});
+test('multiple floors with stairs round trip including active floor',()=>{
+ const p=sample();p.furniture.push({id:'stairs-test',kind:'stairs',x:1,y:2,width:1.1,depth:3.5,rotation:90});
+ const b=addFloor(buildingFromPlan(p),'Primer piso','copy');
+ assert.deepEqual(validateBuilding(JSON.parse(JSON.stringify(b))),b);
+ assert.equal(activeFloorPlan(b).furniture.at(-1).kind,'stairs');
+});
+test('floor rename and removal retain others and select a surviving floor',()=>{
+ const a=buildingFromPlan(sample()),b=addFloor(a,'Alta','blank'),c=addFloor(b,'Terraza','blank');
+ const renamed=renameFloor(c,c.activeFloorId,'Azotea');assert.equal(renamed.floors[2].name,'Azotea');assert.equal(c.floors[2].name,'Terraza');
+ const removed=removeFloor(c,c.activeFloorId);assert.equal(removed.activeFloorId,b.activeFloorId);assert.equal(removed.floors.length,2);
+ assert.equal(removeFloor(c,c.floors[0].id).activeFloorId,c.activeFloorId);
+ assert.throws(()=>removeFloor(a,a.activeFloorId));assert.throws(()=>renameFloor(b,b.activeFloorId,' '));
+});
+test('malformed multi-floor projects reject atomically',()=>{
+ const b=buildingFromPlan(sample());
+ for(const patch of [{activeFloorId:'missing'},{floors:[]},{floors:null},{floors:[null]},{floors:[b.floors[0],b.floors[0]]},{floors:[{...b.floors[0],name:'a'.repeat(61)}]},{floors:[{...b.floors[0],plan:{...sample(),walls:[{}]}}]}])assert.throws(()=>validateBuilding({...b,...patch}));
+ const twenty={...b,floors:Array.from({length:20},(_,i)=>({...b.floors[0],id:'floor-'+i})),activeFloorId:'floor-0'};
+ assert.equal(validateBuilding(twenty).floors.length,20);assert.throws(()=>addFloor(twenty,'Extra','blank'));assert.equal(twenty.floors.length,20);
+});
+test('project rename propagates to active floor views without changing floor names',()=>{
+ const b=addFloor(buildingFromPlan(sample()),'Alta','blank');const next=replaceFloorPlan(b,{...activeFloorPlan(b),name:'Casa nueva'});
+ assert.equal(next.name,'Casa nueva');assert.equal(activeFloorPlan({...next,activeFloorId:next.floors[0].id}).name,'Casa nueva');assert.equal(next.floors[1].name,'Alta');
 });

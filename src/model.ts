@@ -4,9 +4,10 @@ export type Dimension = { id: string; a: Point; b: Point; offset: number };
 export type Wall = { id: string; a: Point; b: Point; thickness?: number };
 export type Opening = { id: string; wallId: string; t: number; width: number; kind: 'door' | 'window'; hinge?: 'start' | 'end'; swing?: 'negative' | 'positive' };
 export type Label = { id: string; x: number; y: number; text: string };
-export type FurnitureKind = 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer';
+export type FurnitureKind = 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer' | 'stairs';
 export type Furniture = { id: string; kind: FurnitureKind; x: number; y: number; width: number; depth: number; rotation: number };
 export const furnitureCatalog: { kind: FurnitureKind; name: string; width: number; depth: number }[] = [
+  { kind: 'stairs', name: 'Escalera recta', width: 1, depth: 3 },
   { kind: 'tv', name: 'Televisor', width: 1.2, depth: .3 },
   { kind: 'bathtub', name: 'Bañera', width: .7, depth: 1.7 },
   { kind: 'roundCoffeeTable', name: 'Mesa ratona redonda', width: .8, depth: .8 },
@@ -302,4 +303,52 @@ export function surfaceLabel(points: Point[]): Point {
 }
 export function addSurface(plan: Plan, points: Point[], name='Ambiente'): Plan {
   return validatePlan({...plan,surfaces:[...plan.surfaces,{id:uid(),name:name.trim()||'Ambiente',points}]});
+}
+
+export type Floor = { id: string; name: string; plan: Plan };
+export type Building = { format: 'trazocasa'; version: 7; name: string; activeFloorId: string; floors: Floor[] };
+export function buildingFromPlan(plan: Plan): Building {
+  const id=uid();
+  return {format:'trazocasa',version:7,name:plan.name,activeFloorId:id,floors:[{id,name:'Planta baja',plan:validatePlan(plan)}]};
+}
+/** Older single-floor files become a building without changing geometry. */
+export function validateBuilding(value: unknown): Building {
+  if(!value || typeof value!=='object')throw new Error('El archivo no contiene un proyecto válido.');
+  const b=value as Building;
+  if(b.version!==7)return buildingFromPlan(validatePlan(value));
+  if(b.format!=='trazocasa'||typeof b.name!=='string'||b.name.length>100||!Array.isArray(b.floors)||b.floors.length<1||b.floors.length>20)throw new Error('El proyecto debe tener entre 1 y 20 plantas.');
+  const ids=new Set<string>();
+  const floors=b.floors.map(f=>{
+    if(!f||typeof f.id!=='string'||!f.id||ids.has(f.id)||typeof f.name!=='string'||!f.name.trim()||f.name.length>60)throw new Error('La lista de plantas no es válida.');
+    ids.add(f.id);
+    return {id:f.id,name:f.name,plan:validatePlan(f.plan)};
+  });
+  if(!ids.has(b.activeFloorId))throw new Error('No se encontró la planta activa.');
+  return {format:'trazocasa',version:7,name:b.name,activeFloorId:b.activeFloorId,floors};
+}
+export function activeFloorPlan(b: Building): Plan {
+  const floor=b.floors.find(f=>f.id===b.activeFloorId);
+  if(!floor)throw new Error('No se encontró la planta activa.');
+  return {...floor.plan,name:b.name};
+}
+export function replaceFloorPlan(b: Building, plan: Plan): Building {
+  const checked=validatePlan(plan);
+  return {...b,name:checked.name,floors:b.floors.map(f=>f.id===b.activeFloorId?{...f,plan:checked}:f)};
+}
+export function addFloor(b: Building, name: string, mode: 'blank'|'walls'|'copy'): Building {
+  const source=activeFloorPlan(b), blank=emptyPlan();
+  const plan=mode==='copy'?source:mode==='walls'?{...blank,walls:source.walls}:blank;
+  const id=uid();
+  return validateBuilding({...b,activeFloorId:id,floors:[...b.floors,{id,name:name.trim()||'Planta superior',plan:{...plan,name:b.name}}]});
+}
+export function renameFloor(b: Building, id: string, name: string): Building {
+  if(!b.floors.some(f=>f.id===id))throw new Error('No se encontró la planta.');
+  return validateBuilding({...b,floors:b.floors.map(f=>f.id===id?{...f,name:name.trim()}:f)});
+}
+export function removeFloor(b: Building, id: string): Building {
+  if(b.floors.length===1)throw new Error('El proyecto debe conservar al menos una planta.');
+  const index=b.floors.findIndex(f=>f.id===id);
+  if(index<0)throw new Error('No se encontró la planta.');
+  const floors=b.floors.filter(f=>f.id!==id);
+  return validateBuilding({...b,floors,activeFloorId:b.activeFloorId===id?floors[Math.max(0,index-1)].id:b.activeFloorId});
 }
