@@ -111,3 +111,8 @@ Se mantiene el formato v6. Los planos existentes conservan sus muebles; las vers
 ## Catálogo ampliado (0.8)
 
 Televisor con base (1,20 × 0,30 m), bañera (0,70 × 1,70 m), mesa ratona redonda (diámetro 0,80 m), sillón individual (0,85 × 0,85 m), heladera (0,70 × 0,70 m), cocina de cuatro hornallas (0,60 × 0,60 m) y lavarropas de carga superior (0,60 × 0,65 m). Dimensiones orientativas editables; el televisor incluye su base y no representa pulgadas de pantalla. La mesa tiene un único diámetro y se rechazan archivos que la deformen en elipse. Todos conservan movimiento, rotación, duplicado, historial, guardado y exportaciones. Se mantiene formato v6; editores anteriores a 0.8 no reconocen estos siete tipos nuevos.
+
+
+## Cabecera compacta (0.9)
+
+Se unifican las dos barras superiores en una cabecera de 56 px (52 px en móvil). El nombre permanece editable; Menú reúne Nuevo, Abrir, Guardar archivo, exportaciones y ayuda. El desplegable se superpone al editor, se cierra al elegir una acción, tocar fuera o pulsar Escape, y se recorre con Tab. Guardar sigue disponible con Ctrl/Cmd S cuando el menú está cerrado.
