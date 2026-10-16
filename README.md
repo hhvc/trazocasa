@@ -31,7 +31,7 @@ Las paredes unidas comparten el movimiento de sus extremos. Las puertas y ventan
 
 Autoguardado local en `localStorage`, con recuperación al recargar y manejo de errores. Se eligió para este prototipo pequeño sin imágenes; migrar a IndexedDB al agregar proyectos múltiples y recursos. Descargar el archivo crea una copia independiente; el almacenamiento del navegador puede eliminarse. No hay sincronización ni carga remota de planos. Abrir y crear proyectos se pueden deshacer. Los archivos importados se validan (versión, geometría, límites y aberturas).
 
-Los nuevos archivos usan formato v4, con espesor de paredes, muebles y orientación de puertas. Los archivos v1, v2 y v3 se migran al abrirlos conservando su geometría y apariencia. Las versiones anteriores del editor no pueden abrir archivos v4.
+Los nuevos archivos usan formato v5, con espesor de paredes, muebles y orientación de puertas. Los archivos v1, v2, v3 y v4 se migran al abrirlos conservando su geometría y apariencia. Las versiones anteriores del editor no pueden abrir archivos v5.
 
 Exportación SVG y PNG (hasta 2400 px en el lado mayor), encuadrando paredes, arcos de puertas, textos y muebles girados, incluso fuera de la vivienda. El PNG incluye fondo claro; no exporta la cuadrícula ni los controles de selección.
 
@@ -77,3 +77,12 @@ Las puertas y ventanas mantienen su distancia al extremo fijo cuando cambia la l
 - Los cambios participan de deshacer/rehacer, autoguardado y archivos `.trazocasa`.
 
 Las longitudes siguen representando ejes de paredes, no medidas interiores útiles. El espesor es una propiedad gráfica y no implica verificación constructiva.
+
+
+## Cotas manuales (0.5)
+
+Elegí **Cota (C)** y marcá tres puntos: inicio, final y ubicación de la línea de medida. La distancia se calcula entre los dos primeros puntos, también en diagonal. Los puntos se ajustan a extremos de paredes cercanos o a la cuadrícula de 10 cm. Escape cancela sin agregar una cota.
+
+Al seleccionar una cota, arrastrá A/B para cambiar sus puntos o la línea para ajustar su separación. El panel permite ingresar la separación en metros, con coma o punto; los valores negativos cambian el lado. Se admiten longitudes desde 10 cm, separaciones entre -100 y 100 m y hasta 500 cotas por proyecto.
+
+Son anotaciones independientes: no siguen automáticamente las paredes al modificarlas. Participan de deshacer/rehacer, eliminación, autoguardado y archivos. Se incluyen en SVG y PNG aunque se oculten las medidas automáticas de paredes. El encuadre incluye las cotas exteriores. El formato v5 conserva compatibilidad de lectura con v1–v4; editores anteriores no abren archivos v5.

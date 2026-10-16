@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('./model.ts', import.meta.url), 'utf8');
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform, moveWallEndpoint, translateWall, splitWall, wallThickness } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const { addDimension, dimensionGeometry, dimensionOffset, validatePlan, sample, fitOpening, project, distance, emptyPlan, furnitureCorners, planBounds, addRectangle, doorTransform, moveWallEndpoint, translateWall, splitWall, wallThickness } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 test('example survives file round trip', () => { const p = sample(); assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))), p); });
 test('reject incompatible and malformed files', () => { for (const p of [null, {}, { ...sample(), version: 99 }, { ...sample(), walls: [{ id: 'x', a: { x: 0, y: 0 }, b: { x: 0, y: 0 } }] }]) assert.throws(() => validatePlan(p)); });
 test('reject nonfinite geometry and duplicated identifiers', () => { const p = sample(); p.walls[0].a.x = Infinity; assert.throws(() => validatePlan(p)); const q = sample(); q.labels[0].id = q.walls[0].id; assert.throws(() => validatePlan(q)); });
@@ -16,7 +16,7 @@ test('project onto horizontal, vertical, diagonal segments', () => { assert.equa
 test('legacy v1 plans migrate without changing their walls or openings', () => {
   const { furniture, ...legacy } = sample(); legacy.version = 1;
   const migrated = validatePlan(JSON.parse(JSON.stringify(legacy)));
-  assert.equal(migrated.version, 4); assert.deepEqual(migrated.furniture, []);
+  assert.equal(migrated.version, 5); assert.deepEqual(migrated.furniture, []);
   assert.deepEqual(migrated.walls, legacy.walls); assert.deepEqual(migrated.openings, legacy.openings);
   assert.deepEqual(migrated.labels, legacy.labels);
 });
@@ -64,7 +64,7 @@ test('empty plans have a usable default viewport', () => {
 
 test('v2 plans migrate with furniture and the original door appearance', () => {
   const old = { ...sample(), version: 2 };
-  const next = validatePlan(old); assert.equal(next.version, 4);
+  const next = validatePlan(old); assert.equal(next.version, 5);
   assert.deepEqual(next.furniture, old.furniture); assert.deepEqual(next.openings, old.openings);
   assert.deepEqual(doorTransform(next.openings[0]), { x: 1, y: 1 });
 });
@@ -121,7 +121,7 @@ function simpleWall() {
 }
 function openingPosition(p,o) { const w=p.walls.find(w=>w.id===o.wallId);return {x:w.a.x+(w.b.x-w.a.x)*o.t,y:w.a.y+(w.b.y-w.a.y)*o.t}; }
 test('v3 migrates with legacy thickness and accepts explicit thickness',()=>{
-  const p={...sample(),version:3};const next=validatePlan(p);assert.equal(next.version,4);assert.equal(wallThickness(next.walls[0]),.105);
+  const p={...sample(),version:3};const next=validatePlan(p);assert.equal(next.version,5);assert.equal(wallThickness(next.walls[0]),.105);
   const explicit=simpleWall();assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(explicit))),explicit);
   for(const thickness of [0,.049,.601,NaN,'15',null]){const bad=simpleWall();bad.walls[0].thickness=thickness;assert.throws(()=>validatePlan(bad));}
 });
@@ -191,4 +191,29 @@ test('T junction may slide along its parent but cannot detach silently',()=>{
   const p=emptyPlan();p.walls=[{id:'main',a:{x:0,y:0},b:{x:6,y:0}},{id:'branch',a:{x:3,y:0},b:{x:3,y:4}}];
   assert.throws(()=>moveWallEndpoint(p,'branch','a',{x:3,y:1}),/unión en T/);
   assert.deepEqual(moveWallEndpoint(p,'branch','a',{x:4,y:0}).walls[1].a,{x:4,y:0});
+});
+
+test('manual dimensions measure diagonal distances and preserve signed offsets',()=>{
+ const p=addDimension(emptyPlan(),{x:0,y:0},{x:3,y:4},{x:-4,y:3});const g=dimensionGeometry(p.dimensions[0]);
+ assert.equal(g.length,5);assert.equal(p.dimensions[0].offset,5);assert.deepEqual(g.a,{x:-4,y:3});
+ assert.equal(dimensionOffset({x:0,y:0},{x:4,y:0},{x:2,y:-2}),-2);
+ assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(p))),p);
+});
+test('v4 migrates to empty dimensions; v5 requires a valid collection',()=>{
+ const p=sample();delete p.dimensions;p.version=4;assert.deepEqual(validatePlan(p).dimensions,[]);
+ p.version=5;assert.throws(()=>validatePlan(p));
+});
+test('invalid dimensions reject atomically and ids share the global namespace',()=>{
+ const base=emptyPlan();assert.throws(()=>addDimension(base,{x:0,y:0},{x:0,y:0},{x:1,y:1}));assert.equal(base.dimensions.length,0);
+ const p=addDimension(sample(),{x:0,y:0},{x:2,y:0},{x:0,y:1});
+ for(const patch of [{offset:NaN},{offset:101},{a:{x:1001,y:0}},{b:{x:0,y:0}},{id:'w1'}])assert.throws(()=>validatePlan({...p,dimensions:[{...p.dimensions[0],...patch}]}));
+ assert.throws(()=>validatePlan({...p,dimensions:Array.from({length:501},(_,i)=>({...p.dimensions[0],id:'dim'+i}))}));
+});
+test('framing includes detached dimension lines and endpoints',()=>{
+ const p=addDimension(emptyPlan(),{x:0,y:0},{x:4,y:0},{x:0,y:-8});const b=planBounds(p,0);
+ assert.ok(b.y<=-9);assert.ok(b.y+b.height>=0);assert.ok(b.x+b.width>=4);
+});
+test('manual dimensions stay independent when walls change',()=>{
+ const p=addDimension(sample(),{x:0,y:0},{x:8,y:0},{x:0,y:-1});
+ assert.deepEqual(moveWallEndpoint(p,'w1','b',{x:9,y:0}).dimensions,p.dimensions);
 });
