@@ -324,3 +324,43 @@ test('project rename propagates to active floor views without changing floor nam
  const b=addFloor(buildingFromPlan(sample()),'Alta','blank');const next=replaceFloorPlan(b,{...activeFloorPlan(b),name:'Casa nueva'});
  assert.equal(next.name,'Casa nueva');assert.equal(activeFloorPlan({...next,activeFloorId:next.floors[0].id}).name,'Casa nueva');assert.equal(next.floors[1].name,'Alta');
 });
+
+const modelUrl = `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`;
+const alignmentSource = await readFile(new URL('./alignment.ts', import.meta.url), 'utf8');
+const alignmentJs = ts.transpileModule(alignmentSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replace("'./model'", JSON.stringify(modelUrl));
+const { alignFurniture } = await import(`data:text/javascript;base64,${Buffer.from(alignmentJs).toString('base64')}`);
+const landing = (id,x,y,width=1,depth=1,rotation=0) => ({id,kind:'stairLanding',x,y,width,depth,rotation});
+test('alignment joins stair footprints without losing off-grid precision',()=>{
+  const p=emptyPlan(); p.furniture=[landing('fixed',0,0,1.15,1)];
+  const moving=landing('moving',1.1,.04);
+  const result=alignFurniture(p,moving,.1);
+  assert.ok(Math.abs(result.item.x-1.075)<1e-9); assert.ok(Math.abs(result.item.y)<1e-9);
+  assert.equal(result.guides.length,2); assert.equal(moving.x,1.1);
+});
+test('alignment uses rotated footprints and can align centres',()=>{
+  const p=emptyPlan();p.furniture=[landing('fixed',0,0,2,1,90)];
+  const result=alignFurniture(p,landing('moving',1.04,.03),.1);
+  assert.ok(Math.abs(result.item.x-1)<1e-9);assert.ok(Math.abs(result.item.y)<1e-9);
+});
+test('alignment ignores itself and distant elements',()=>{
+  const p=emptyPlan(); const moving=landing('moving',.03,.04);
+  p.furniture=[moving,landing('distant',.03,10)];
+  assert.deepEqual(alignFurniture(p,moving,.1).guides,[]);
+});
+test('alignment uses wall faces including wall thickness',()=>{
+  const p=emptyPlan();p.walls=[{id:'wall',a:{x:0,y:-2},b:{x:0,y:2},thickness:.15}];
+  const result=alignFurniture(p,landing('moving',.6,.3),.1);
+  assert.ok(Math.abs(result.item.x-.575)<1e-9);
+});
+test('disabled alignment keeps grid; free movement bypasses both',()=>{
+  const p=emptyPlan();p.furniture=[landing('fixed',0,0)];const moving=landing('moving',1.03,.04);
+  assert.deepEqual(alignFurniture(p,moving,.1,false),{item:{...moving,x:1,y:0},guides:[]});
+  assert.deepEqual(alignFurniture(p,moving,.1,true,true),{item:moving,guides:[]});
+});
+test('alignment does not pull beyond tolerance and survives project round trip',()=>{
+  const p=emptyPlan();p.furniture=[landing('fixed',0,0)];
+  assert.equal(alignFurniture(p,landing('moving',1.25,0),100).guides.some(g=>g.axis==='x'),false);
+  const aligned=alignFurniture(p,landing('moving',1.03,.04),.1).item;
+  p.furniture.push(aligned);const b=buildingFromPlan(p);
+  assert.deepEqual(validateBuilding(JSON.parse(JSON.stringify(b))),b);
+});

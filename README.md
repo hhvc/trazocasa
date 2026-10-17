@@ -134,3 +134,9 @@ Guardar archivo y autoguardado incluyen todas las plantas; SVG/PNG exportan úni
 ### Descanso de escalera
 
 En Muebles, Descanso de escalera agrega una plataforma rectangular de 1 × 1 m. Su ancho y largo se editan independientemente (0,20 a 10 m); admite movimiento, giro y duplicado. Para una L, combiná dos tramos rectos a 90° junto al descanso; para una U, usá dos tramos paralelos con subida opuesta y un descanso que abarque ambos anchos. Las piezas se colocan manualmente y siguen siendo independientes. El descanso también aparece en la referencia Inferior y se guarda y exporta como los demás elementos. Se mantiene el formato v7; las versiones anteriores del editor no reconocen este nuevo tipo.
+
+## Alineación de elementos
+
+Al insertar o arrastrar muebles, escaleras y descansos, se ajustan sus bordes y centros a elementos cercanos de la planta activa. Las guías azules indican la alineación; las caras y ejes de paredes horizontales y verticales también sirven como referencia. La tolerancia es de 8 píxeles, con un máximo de 20 cm. Para objetos girados se utiliza su rectángulo envolvente respecto de los ejes del plano; no se unen automáticamente caras diagonales.
+
+**Ajuste a elementos** permite desactivar esta función manteniendo el ajuste de 10 cm. Mantener **Alt** durante el movimiento permite ubicar libremente, sin ninguno de los dos ajustes. La cuadrícula controla únicamente su visibilidad. Las guías son temporales, no se guardan ni se exportan, y cada arrastre conserva un solo paso de Deshacer. Las piezas siguen siendo independientes; no se agrupan ni se evitan superposiciones.
