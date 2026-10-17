@@ -148,3 +148,11 @@ Con Seleccionar, **Shift + clic** agrega o quita muebles y piezas de escalera; e
 El panel de detalles permite **Agrupar**, **Desagrupar**, **Girar conjunto 90°**, **Duplicar conjunto** y **Eliminar selección**. El giro cambia posiciones y orientaciones alrededor del centro del rectángulo envolvente; el movimiento y duplicado conservan las separaciones exactas. Las copias tienen grupos independientes. Cada acción ocupa un paso del historial. Para editar medidas individuales de un grupo, desagrupalo primero.
 
 Al arrastrar varias piezas, la alineación usa el rectángulo del conjunto y excluye las piezas seleccionadas de los destinos de ajuste. Los grupos se limitan a la planta activa; no vinculan pisos. Se guardan en archivos y autoguardado como un `groupId` opcional en cada mueble, manteniendo formato v7 y la lectura de proyectos anteriores. Editores anteriores a 0.11 conservan la geometría, pero no la agrupación. Las selecciones y marcos son temporales y no se exportan.
+
+## Escaleras prearmadas (0.12)
+
+La herramienta **Escaleras (E)** inserta escaleras en L o U como un grupo de dos tramos rectos y un descanso. Permite indicar ancho común, largos independientes, fondo del descanso, sentido al subir y giro de 0°, 90°, 180° o 270°. En U se puede agregar una separación entre tramos: el descanso cubre ambos anchos y la separación. En L el ancho del descanso coincide con el tramo y su fondo puede ser mayor.
+
+Las medidas de cada pieza van de 0,20 a 10 m. Para que las piezas encajen, el fondo del descanso debe ser al menos igual al ancho de los tramos; en U el ancho total no supera 10 m. Son límites del editor, no recomendaciones constructivas. La huella total se muestra antes de colocar y el puntero representa el centro de su rectángulo envolvente. La vista previa y el ajuste a elementos usan el conjunto completo.
+
+Una inserción ocupa un solo paso de Deshacer y tres lugares del límite de 500 muebles por planta. Los grupos admiten movimiento, giro, duplicado y desagrupado para editar cada pieza. Se mantiene el formato v7, con los tipos de pieza ya existentes. Las flechas indican subida, sin cálculo de alturas, huellas, contrahuellas o normativa de obra.

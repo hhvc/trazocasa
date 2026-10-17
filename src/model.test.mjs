@@ -428,3 +428,62 @@ test('group alignment applies one delta without snapping pieces against each oth
  const result=translateFurnitureSelection(p,ids,{x:aligned.item.x-proxy.x,y:aligned.item.y-proxy.y});
  assert.ok(Math.abs((result.furniture[2].x-result.furniture[0].x)-(p.furniture[2].x-p.furniture[0].x))<1e-9);
 });
+
+const groupsUrl=`data:text/javascript;base64,${Buffer.from(groupsJs).toString('base64')}`;
+const stairsSource=await readFile(new URL('./stairs.ts',import.meta.url),'utf8');
+const stairsJs=ts.transpileModule(stairsSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace("'./model'",JSON.stringify(modelUrl)).replace("'./groups'",JSON.stringify(groupsUrl));
+const {defaultStaircase,parseStaircase,staircasePieces,addStaircase}=await import(`data:text/javascript;base64,${Buffer.from(stairsJs).toString('base64')}`);
+const stairOptions=(extra={})=>({...parseStaircase(defaultStaircase),...extra});
+const closeTo=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-8,`${actual} != ${expected}`);
+function stairBox(f){const p=furnitureCorners(f);return {left:Math.min(...p.map(v=>v.x)),right:Math.max(...p.map(v=>v.x)),top:Math.min(...p.map(v=>v.y)),bottom:Math.max(...p.map(v=>v.y))};}
+test('L presets join both flights to the landing with independent lengths',()=>{
+ for(const side of ['right','left']){
+  const pieces=staircasePieces(stairOptions({side,width:1.2,landingDepth:1.8,firstLength:2.7,secondLength:4.3}),{x:5,y:-3});
+  const [a,d,b]=pieces.map(stairBox);closeTo(a.top,d.bottom);closeTo(a.left,d.left);closeTo(b.top,d.top);
+  closeTo(side==='right'?b.left:b.right,side==='right'?d.right:d.left);
+  assert.equal(pieces[2].rotation,side==='right'?90:270);assert.equal(pieces[0].depth,2.7);assert.equal(pieces[2].depth,4.3);
+  const bounds=selectionBounds(pieces);closeTo(bounds.x,5);closeTo(bounds.y,-3);closeTo(bounds.width,5.5);closeTo(bounds.depth,4.5);
+ }
+});
+test('U presets preserve a central gap and opposite ascent directions',()=>{
+ for(const side of ['right','left'])for(const gap of [0,.4,2]){
+  const pieces=staircasePieces(stairOptions({shape:'U',side,gap,width:1.1,landingDepth:1.3,firstLength:2.5,secondLength:3.5}),{x:0,y:0});
+  const [a,d,b]=pieces.map(stairBox);closeTo(a.top,d.bottom);closeTo(b.top,d.bottom);
+  closeTo(side==='right'?b.left-a.right:a.left-b.right,gap);
+  closeTo(d.right-d.left,2.2+gap);assert.equal(pieces[0].rotation,0);assert.equal(pieces[2].rotation,180);
+ }
+});
+test('preset orientation rotates the complete shape about its insertion point',()=>{
+ for(const shape of ['L','U'])for(const rotation of [0,90,180,270]){
+  const pieces=staircasePieces(stairOptions({shape,rotation,gap:.5}),{x:4,y:7});const box=selectionBounds(pieces);
+  closeTo(box.x,4);closeTo(box.y,7);assert.equal(pieces[0].rotation,rotation);
+  const base=selectionBounds(staircasePieces(stairOptions({shape,gap:.5}),{x:0,y:0}));
+  closeTo(box.width,rotation%180?base.depth:base.width);closeTo(box.depth,rotation%180?base.width:base.depth);
+ }
+});
+test('preset fields accept decimal commas and reject incomplete or impossible dimensions',()=>{
+ assert.equal(parseStaircase({...defaultStaircase,width:'1,2',landingDepth:'1,5'}).width,1.2);
+ for(const changes of [{width:''},{firstLength:'NaN'},{secondLength:'0.1'},{landingDepth:'0.5'},{shape:'U',gap:'-1'},{shape:'U',width:'5',landingDepth:'5',gap:'0.1'},{rotation:45},{side:'unknown'}])assert.throws(()=>parseStaircase({...defaultStaircase,...changes}));
+ assert.equal(parseStaircase({...defaultStaircase,gap:'invalid'}).gap,0);
+});
+test('inserting presets creates independent groups and survives project round trip',()=>{
+ const initial=emptyPlan();const first=addStaircase(initial,stairOptions(),{x:0,y:0});const second=addStaircase(first.plan,stairOptions({shape:'U'}),{x:8,y:0});
+ assert.equal(initial.furniture.length,0);assert.equal(second.plan.furniture.length,6);
+ assert.deepEqual(expandFurnitureSelection(second.plan,[first.ids[0]]),first.ids);
+ assert.deepEqual(expandFurnitureSelection(second.plan,[second.ids[0]]),second.ids);
+ assert.notEqual(second.plan.furniture[0].groupId,second.plan.furniture[3].groupId);
+ const building=addFloor(buildingFromPlan(second.plan),'Planta alta','copy');assert.deepEqual(validateBuilding(JSON.parse(JSON.stringify(building))),building);
+});
+test('preset insertion rejects item limits and out-of-range positions atomically',()=>{
+ const p=emptyPlan();p.furniture=Array.from({length:498},(_,i)=>landing('f'+i,i,0));
+ assert.throws(()=>addStaircase(p,stairOptions(),{x:0,y:0}));assert.equal(p.furniture.length,498);
+ p.furniture.pop();assert.equal(addStaircase(p,stairOptions(),{x:0,y:0}).plan.furniture.length,500);
+ assert.throws(()=>addStaircase(emptyPlan(),stairOptions(),{x:1002,y:0}));
+ assert.throws(()=>staircasePieces(stairOptions(),{x:NaN,y:0}));
+});
+test('preview and inserted preset use identical geometry and fresh IDs',()=>{
+ const opts=stairOptions({shape:'U',side:'left',rotation:270,gap:.8});let counter=0;
+ const preview=staircasePieces(opts,{x:1.075,y:3},()=>`preview-${counter++}`);const actual=addStaircase(emptyPlan(),opts,{x:1.075,y:3});
+ const geometry=items=>items.map(({id,groupId,...item})=>item);
+ assert.deepEqual(geometry(preview),geometry(actual.plan.furniture));assert.equal(new Set(actual.ids).size,3);
+});
