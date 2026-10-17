@@ -129,3 +129,8 @@ En Muebles se incorpora **Escalera recta**, inicialmente 1 × 3 m, con ancho, la
 El formato v7 guarda todas las plantas y la selección activa. Los archivos v1–v6 se migran a Planta baja conservando sus datos. El contenido de cada planta utiliza el esquema de geometría v6. El historial es del proyecto completo: deshacer/rehacer restaura ediciones y plantas eliminadas. Cambiar de planta por sí solo no agrega un paso al historial. Al crear un proyecto nuevo se reemplaza el proyecto completo, recuperable con Deshacer.
 
 Guardar archivo y autoguardado incluyen todas las plantas; SVG/PNG exportan únicamente la planta activa y su nombre aparece en el archivo. Se admiten archivos de hasta 20 MB; el almacenamiento del navegador mantiene su propio límite, y se avisa si no puede guardar.
+
+
+### Descanso de escalera
+
+En Muebles, Descanso de escalera agrega una plataforma rectangular de 1 × 1 m. Su ancho y largo se editan independientemente (0,20 a 10 m); admite movimiento, giro y duplicado. Para una L, combiná dos tramos rectos a 90° junto al descanso; para una U, usá dos tramos paralelos con subida opuesta y un descanso que abarque ambos anchos. Las piezas se colocan manualmente y siguen siendo independientes. El descanso también aparece en la referencia Inferior y se guarda y exporta como los demás elementos. Se mantiene el formato v7; las versiones anteriores del editor no reconocen este nuevo tipo.

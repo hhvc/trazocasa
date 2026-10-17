@@ -4,10 +4,11 @@ export type Dimension = { id: string; a: Point; b: Point; offset: number };
 export type Wall = { id: string; a: Point; b: Point; thickness?: number };
 export type Opening = { id: string; wallId: string; t: number; width: number; kind: 'door' | 'window'; hinge?: 'start' | 'end'; swing?: 'negative' | 'positive' };
 export type Label = { id: string; x: number; y: number; text: string };
-export type FurnitureKind = 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer' | 'stairs';
+export type FurnitureKind = 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer' | 'stairs' | 'stairLanding';
 export type Furniture = { id: string; kind: FurnitureKind; x: number; y: number; width: number; depth: number; rotation: number };
 export const furnitureCatalog: { kind: FurnitureKind; name: string; width: number; depth: number }[] = [
   { kind: 'stairs', name: 'Escalera recta', width: 1, depth: 3 },
+  { kind: 'stairLanding', name: 'Descanso de escalera', width: 1, depth: 1 },
   { kind: 'tv', name: 'Televisor', width: 1.2, depth: .3 },
   { kind: 'bathtub', name: 'Bañera', width: .7, depth: 1.7 },
   { kind: 'roundCoffeeTable', name: 'Mesa ratona redonda', width: .8, depth: .8 },
