@@ -140,3 +140,11 @@ En Muebles, Descanso de escalera agrega una plataforma rectangular de 1 × 1 m. 
 Al insertar o arrastrar muebles, escaleras y descansos, se ajustan sus bordes y centros a elementos cercanos de la planta activa. Las guías azules indican la alineación; las caras y ejes de paredes horizontales y verticales también sirven como referencia. La tolerancia es de 8 píxeles, con un máximo de 20 cm. Para objetos girados se utiliza su rectángulo envolvente respecto de los ejes del plano; no se unen automáticamente caras diagonales.
 
 **Ajuste a elementos** permite desactivar esta función manteniendo el ajuste de 10 cm. Mantener **Alt** durante el movimiento permite ubicar libremente, sin ninguno de los dos ajustes. La cuadrícula controla únicamente su visibilidad. Las guías son temporales, no se guardan ni se exportan, y cada arrastre conserva un solo paso de Deshacer. Las piezas siguen siendo independientes; no se agrupan ni se evitan superposiciones.
+
+## Selección múltiple y grupos (0.11)
+
+Con Seleccionar, **Shift + clic** agrega o quita muebles y piezas de escalera; el botón **Selección múltiple** permite hacerlo también con toques. Desactivá ese botón para arrastrar la selección. Un clic en vacío o Limpiar selección la vacía. Paredes, cotas, superficies, textos y aberturas mantienen su edición individual.
+
+El panel de detalles permite **Agrupar**, **Desagrupar**, **Girar conjunto 90°**, **Duplicar conjunto** y **Eliminar selección**. El giro cambia posiciones y orientaciones alrededor del centro del rectángulo envolvente; el movimiento y duplicado conservan las separaciones exactas. Las copias tienen grupos independientes. Cada acción ocupa un paso del historial. Para editar medidas individuales de un grupo, desagrupalo primero.
+
+Al arrastrar varias piezas, la alineación usa el rectángulo del conjunto y excluye las piezas seleccionadas de los destinos de ajuste. Los grupos se limitan a la planta activa; no vinculan pisos. Se guardan en archivos y autoguardado como un `groupId` opcional en cada mueble, manteniendo formato v7 y la lectura de proyectos anteriores. Editores anteriores a 0.11 conservan la geometría, pero no la agrupación. Las selecciones y marcos son temporales y no se exportan.

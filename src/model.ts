@@ -5,7 +5,7 @@ export type Wall = { id: string; a: Point; b: Point; thickness?: number };
 export type Opening = { id: string; wallId: string; t: number; width: number; kind: 'door' | 'window'; hinge?: 'start' | 'end'; swing?: 'negative' | 'positive' };
 export type Label = { id: string; x: number; y: number; text: string };
 export type FurnitureKind = 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer' | 'stairs' | 'stairLanding';
-export type Furniture = { id: string; kind: FurnitureKind; x: number; y: number; width: number; depth: number; rotation: number };
+export type Furniture = { groupId?: string; id: string; kind: FurnitureKind; x: number; y: number; width: number; depth: number; rotation: number };
 export const furnitureCatalog: { kind: FurnitureKind; name: string; width: number; depth: number }[] = [
   { kind: 'stairs', name: 'Escalera recta', width: 1, depth: 3 },
   { kind: 'stairLanding', name: 'Descanso de escalera', width: 1, depth: 1 },
@@ -78,10 +78,11 @@ export function validatePlan(value: unknown): Plan {
   }
   for (const l of p.labels) if (!point(l) || typeof l.text !== 'string' || l.text.length > 80) throw new Error('El proyecto contiene etiquetas inválidas.');
   for (const f of furniture) {
+    if (f.groupId !== undefined && (typeof f.groupId !== 'string' || !f.groupId.trim() || f.groupId.length > 100)) throw new Error('El grupo de muebles no es válido.');
     if (f.kind === 'roundCoffeeTable' && f.width !== f.depth) throw new Error('La mesa redonda debe tener un único diámetro.');
     if (!point(f) || !furnitureCatalog.some(item => item.kind === f.kind) || !finite(f.width) || !finite(f.depth) || f.width < .2 || f.width > 10 || f.depth < .2 || f.depth > 10 || !finite(f.rotation) || f.rotation < 0 || f.rotation >= 360) throw new Error('El proyecto contiene muebles inválidos.');
   }
-  return { format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y}))})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
+  return { format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y}))})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
 }
 export function sample(): Plan {
   const wall = (id: string, x: number, y: number, x2: number, y2: number): Wall => ({ id, a: { x, y }, b: { x: x2, y: y2 } });

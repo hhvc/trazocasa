@@ -364,3 +364,67 @@ test('alignment does not pull beyond tolerance and survives project round trip',
   p.furniture.push(aligned);const b=buildingFromPlan(p);
   assert.deepEqual(validateBuilding(JSON.parse(JSON.stringify(b))),b);
 });
+
+const groupsSource=await readFile(new URL('./groups.ts',import.meta.url),'utf8');
+const groupsJs=ts.transpileModule(groupsSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace("'./model'",JSON.stringify(modelUrl));
+const {expandFurnitureSelection,selectionBounds,groupFurniture,ungroupFurniture,translateFurnitureSelection,rotateFurnitureSelection,duplicateFurnitureSelection,removeFurnitureSelection}=await import(`data:text/javascript;base64,${Buffer.from(groupsJs).toString('base64')}`);
+function stairsPlan(){return {...emptyPlan(),furniture:[{...landing('a',0,1.5,1,3),kind:'stairs'},landing('b',0,-.5),{...landing('c',2,-.5,1,3,90),kind:'stairs'},landing('other',8,8)]};}
+test('grouping and ungrouping preserve footprints and round-trip through all floors',()=>{
+ const p=stairsPlan(),before=JSON.stringify(p);const grouped=groupFurniture(p,['a','b','c']);
+ assert.equal(JSON.stringify(p),before);assert.ok(grouped.furniture[0].groupId);
+ assert.deepEqual(expandFurnitureSelection(grouped,['b']),['a','b','c']);
+ const building=addFloor(buildingFromPlan(grouped),'Arriba','copy');
+ assert.deepEqual(validateBuilding(JSON.parse(JSON.stringify(building))),building);
+ assert.deepEqual(ungroupFurniture(grouped,['b']),p);
+ assert.throws(()=>groupFurniture(p,['missing','a']));
+});
+test('group identifiers reject malformed input and old projects remain unchanged',()=>{
+ for(const groupId of [null,17,'','   ','x'.repeat(101),{}]){const p=stairsPlan();p.furniture[0].groupId=groupId;assert.throws(()=>validatePlan(p));}
+ assert.deepEqual(validatePlan(stairsPlan()),stairsPlan());
+});
+test('group transforms preserve relative offsets and affect no unrelated items',()=>{
+ const p=groupFurniture(stairsPlan(),['a','b','c']);const moved=translateFurnitureSelection(p,['b'],{x:.075,y:2.25});
+ for(let i=0;i<3;i++){assert.ok(Math.abs(moved.furniture[i].x-p.furniture[i].x-.075)<1e-9);assert.equal(moved.furniture[i].y-p.furniture[i].y,2.25);}
+ assert.deepEqual(moved.furniture[3],p.furniture[3]);
+ assert.throws(()=>translateFurnitureSelection(p,['a'],{x:1001,y:0}));assert.equal(p.furniture[0].x,0);
+});
+test('quarter turns rotate both positions and orientations around the set centre',()=>{
+ const p=groupFurniture(stairsPlan(),['a','b','c']);const rotated=rotateFurnitureSelection(p,['a']);
+ const before=selectionBounds(p.furniture.slice(0,3)),after=selectionBounds(rotated.furniture.slice(0,3));
+ assert.ok(Math.abs(before.width-after.depth)<1e-9);assert.ok(Math.abs(before.depth-after.width)<1e-9);
+ assert.equal(rotated.furniture[0].rotation,90);assert.equal(rotated.furniture[2].rotation,180);
+ for(let i=0;i<3;i++)for(let j=i+1;j<3;j++)assert.ok(Math.abs(distance(p.furniture[i],p.furniture[j])-distance(rotated.furniture[i],rotated.furniture[j]))<1e-9);
+ let roundtrip=p;for(let i=0;i<4;i++)roundtrip=rotateFurnitureSelection(roundtrip,['a']);
+ p.furniture.forEach((f,i)=>{assert.ok(distance(f,roundtrip.furniture[i])<1e-9);assert.equal(f.rotation,roundtrip.furniture[i].rotation);});
+});
+test('duplicating groups creates independent IDs and preserves exact spacing',()=>{
+ const p=groupFurniture(stairsPlan(),['a','b','c']);const copy=duplicateFurnitureSelection(p,['b']);
+ assert.equal(copy.ids.length,3);assert.equal(copy.plan.furniture.length,7);
+ assert.notEqual(copy.plan.furniture[4].groupId,p.furniture[0].groupId);
+ assert.deepEqual(expandFurnitureSelection(copy.plan,[copy.ids[0]]),copy.ids);
+ const moved=translateFurnitureSelection(copy.plan,[copy.ids[0]],{x:2,y:0});
+ assert.deepEqual(moved.furniture.slice(0,4),p.furniture);
+ for(let i=0;i<3;i++)assert.ok(Math.abs(copy.plan.furniture[4+i].x-p.furniture[i].x-.3)<1e-9);
+});
+test('mixed selections merge whole groups and deletion removes only selected groups',()=>{
+ let p=groupFurniture(stairsPlan(),['a','b']);p=groupFurniture(p,['a','c']);
+ assert.deepEqual(expandFurnitureSelection(p,['b']),['a','b','c']);
+ assert.deepEqual(removeFurnitureSelection(p,['c']).furniture,[p.furniture[3]]);
+ const copy=duplicateFurnitureSelection(p,['a','other']);
+ assert.equal(copy.ids.length,4);assert.equal(copy.plan.furniture.at(-1).groupId,undefined);
+ assert.deepEqual(expandFurnitureSelection(p,['missing']),[]);
+});
+test('group copying respects item limits atomically',()=>{
+ const p=emptyPlan();p.furniture=Array.from({length:500},(_,i)=>landing('f'+i,i,0));
+ assert.throws(()=>duplicateFurnitureSelection(p,['f0','f1']));assert.equal(p.furniture.length,500);
+});
+test('group alignment applies one delta without snapping pieces against each other',()=>{
+ const p=groupFurniture(stairsPlan(),['a','b','c']);const ids=expandFurnitureSelection(p,['a']);
+ const box=selectionBounds(p.furniture.filter(f=>ids.includes(f.id)));
+ const proxy={...box,id:'selection-proxy',kind:'stairLanding',rotation:0};
+ const targets={...p,furniture:p.furniture.filter(f=>!ids.includes(f.id))};
+ const aligned=alignFurniture(targets,{...proxy,x:proxy.x+.14,y:proxy.y+.13},.1);
+ assert.equal(aligned.guides.length,0);
+ const result=translateFurnitureSelection(p,ids,{x:aligned.item.x-proxy.x,y:aligned.item.y-proxy.y});
+ assert.ok(Math.abs((result.furniture[2].x-result.furniture[0].x)-(p.furniture[2].x-p.furniture[0].x))<1e-9);
+});
