@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { House, Menu, ChevronDown, Check, FilePlus2, ArrowUpFromLine, ArrowDownToLine, CircleHelp } from 'lucide-react';
 
-type Props = { name:string; saved:boolean; onName:(name:string)=>void; onRename:()=>void; onNew:()=>void; onOpen:()=>void; onSave:()=>void; onDrive:()=>void; onHelp:()=>void; onSvg:()=>void; onPng:()=>void; exporting:boolean; dragging:boolean };
+type Props = { name:string; saved:boolean; onName:(name:string)=>void; onRename:()=>void; onNew:()=>void; onOpen:()=>void; onSave:()=>void; onDrive:()=>void; onPrint:()=>void; onHelp:()=>void; onSvg:()=>void; onPng:()=>void; exporting:boolean; dragging:boolean };
+const driveEnabled = import.meta.env.VITE_ENABLE_GOOGLE_DRIVE === 'true';
+function donationLink(): string | undefined {
+  try { const url = new URL(import.meta.env.VITE_DONATION_URL ?? 'https://link.mercadopago.com.ar/trazocasa'); return url.protocol === 'https:' && !url.username && !url.password ? url.href : undefined; } catch { return undefined; }
+}
+const donationUrl = donationLink();
 export function ProjectHeader(p:Props) {
   const [open,setOpen]=useState(false);
   const container=useRef<HTMLDivElement>(null), trigger=useRef<HTMLButtonElement>(null);
@@ -27,13 +32,14 @@ export function ProjectHeader(p:Props) {
         <button onClick={()=>act(p.onOpen)}><ArrowUpFromLine size={17}/>Abrir archivo</button>
         <button onClick={()=>act(p.onSave)}><ArrowDownToLine size={17}/>Guardar archivo<kbd>Ctrl S</kbd></button>
         <hr/>
-        <button disabled={p.dragging} onClick={()=>act(p.onDrive)}>Google Drive…</button>
-        <hr/>
+        {driveEnabled&&<><button disabled={p.dragging} onClick={()=>act(p.onDrive)}>Google Drive…</button><hr/></>}
+        <button disabled={p.dragging||p.exporting} onClick={()=>act(p.onPrint)}>Imprimir / Guardar PDF</button>
         <button disabled={p.exporting||p.dragging} onClick={()=>act(p.onPng)}>Exportar imagen PNG</button>
         <button disabled={p.dragging} onClick={()=>act(p.onSvg)}>Exportar imagen SVG</button>
         <hr/>
         <button onClick={()=>act(p.onHelp)}><CircleHelp size={17}/>Cómo empezar</button>
-        <p>El autoguardado es local. Guardá manualmente en Drive o descargá una copia.</p>
+        {donationUrl&&<a className="donation-link" href={donationUrl} target="_blank" rel="noopener noreferrer">Apoyar TrazoCasa ↗</a>}
+        <p>Editor gratuito. Tus planos quedan en tu dispositivo. Descargá una copia para conservarlos o compartirlos.</p>
       </nav>}
     </div>
   </header>;

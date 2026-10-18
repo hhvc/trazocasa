@@ -164,3 +164,15 @@ Menú → Google Drive permite conectar una cuenta, abrir un proyecto, guardar c
 Los archivos contienen todas las plantas y conservan formato v7. Se valida el contenido y se compara la versión remota antes de actualizar para detectar cambios previos de otro dispositivo. No hay edición simultánea ni sincronización automática. La sesión y el vínculo al archivo remoto no se conservan al recargar: para actualizar el original hay que volver a abrirlo desde Drive. El enlace del panel permite compartir desde Google sin que TrazoCasa modifique permisos.
 
 Sin credenciales configuradas se muestra el estado no habilitado. Las pruebas con API y SDK simulados no sustituyen la validación con cuentas reales y dominios autorizados; la guía incluye los casos pendientes de activación.
+
+## Editor gratuito y funcionamiento local
+
+El flujo principal es gratuito y no exige una cuenta. El dibujo, el autoguardado, la exportación y la preparación de impresión se ejecutan en el navegador. El autoguardado no sustituye una copia descargada: puede perderse al borrar los datos del navegador. Los archivos `.trazocasa` incluyen todas las plantas y pueden compartirse o subirse manualmente a cualquier almacenamiento personal.
+
+**Menú → Imprimir / Guardar PDF** prepara la planta activa en una ventana independiente, con título y nombre de planta. Permite imprimir o elegir Guardar como PDF en el diálogo del navegador. La hoja está preparada para A4 horizontal, con el dibujo ajustado al espacio disponible, sin escala técnica fija. No incorpora las otras plantas ni constituye documentación de obra. No utiliza servicios de conversión remotos.
+
+Drive queda oculto por defecto, incluso si existen credenciales. Su implementación se conserva para una posible activación futura: requiere `VITE_ENABLE_GOOGLE_DRIVE=true` además de la configuración documentada. Esto reemplaza el comportamiento anterior del menú de 0.13.
+
+El botón **Apoyar TrazoCasa** utiliza por defecto el enlace público `https://link.mercadopago.com.ar/trazocasa`. Puede reemplazarse con `VITE_DONATION_URL` y una nueva compilación. Definir esa variable vacía oculta el botón. Abre el proveedor en otra pestaña; TrazoCasa no recoge datos de tarjetas, verifica pagos ni desbloquea funciones. Las comisiones y condiciones corresponden al proveedor elegido.
+
+Próximas mejoras propuestas: recuperación local más robusta, impresión a escala y plantillas profesionales. No se implementan todavía suscripciones, almacenamiento remoto propio ni servicios de IA.
