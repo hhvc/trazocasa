@@ -1,0 +1,34 @@
+import { useRef, useState } from 'react';
+import { activeFloorPlan, planBounds, uid } from './model';
+import type { Building } from './model';
+import { readLibrary, writeLibrary, encodeLibrary, parseLibrary } from './library';
+import type { LocalProject } from './library';
+function save(text:string,name:string){const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+export function LibraryPanel({activeId,onOpen,onClose,onNew}:{activeId:string;onOpen:(b:Building,id:string)=>void;onClose:()=>void;onNew:()=>void}){
+  const [error,setError]=useState('');
+  const [items,setItems]=useState<LocalProject[]>(()=>{try{return readLibrary();}catch{return [];}});
+  const [trash,setTrash]=useState(false);
+  const [confirm,setConfirm]=useState<string>();
+  const input=useRef<HTMLInputElement>(null);
+  function change(action:(current:LocalProject[])=>LocalProject[]){try{const next=action(readLibrary());writeLibrary(next);setItems(next);setError('');}catch{setError('No pudimos guardar la biblioteca. Descargá una copia del proyecto; el almacenamiento puede estar lleno o bloqueado.');}}
+  return <div className="modal-backdrop"><section className="modal library-modal" role="dialog" aria-modal="true" aria-label="Mis proyectos" onKeyDown={e=>{
+    if(e.key==='Escape')onClose();
+    if(e.key==='Tab'){const nodes=Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),input:not([hidden])'));const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}
+  }}>
+    <button autoFocus className="modal-close" aria-label="Cerrar biblioteca" onClick={onClose}>×</button>
+    <h2>Mis proyectos</h2><p>Guardados en este dispositivo. Borrar los datos del navegador puede eliminarlos. Descargá respaldos regularmente.</p>
+    <div className="library-actions"><button onClick={onNew}>Nuevo proyecto</button><button onClick={()=>{try{save(encodeLibrary(readLibrary()),'TrazoCasa-respaldo.json');}catch{setError('No pudimos leer la biblioteca.');}}}>Descargar respaldo completo</button><button onClick={()=>input.current?.click()}>Importar respaldo</button><button aria-pressed={trash} onClick={()=>setTrash(v=>!v)}>{trash?'Ver proyectos':'Ver papelera'}</button></div>
+    <input hidden type="file" accept=".json" ref={input} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{if(file.size>20_000_000)throw new Error('El respaldo supera 20 MB.');const imported=parseLibrary(JSON.parse(await file.text()));change(current=>[...current,...imported.map(p=>({...p,id:uid()}))]);}catch(err){setError(err instanceof Error?err.message:'No pudimos importar el respaldo.');}}}/>
+    {error&&<p role="alert">{error}</p>}
+    <div className="library-grid">{items.filter(p=>p.deleted===trash).sort((a,b)=>b.updated.localeCompare(a.updated)).map(p=>{const plan=activeFloorPlan(p.building),bounds=planBounds(plan);return <article key={p.id}>
+      <svg aria-label="Miniatura de paredes de la planta activa" viewBox={`${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`}><g stroke="#365f49" strokeWidth="0.12">{plan.walls.map(w=><line key={w.id} x1={w.a.x} y1={w.a.y} x2={w.b.x} y2={w.b.y}/>)}</g></svg>
+      <strong>{p.building.name}</strong><small>{new Date(p.updated).toLocaleString()} · {p.building.floors.length} plantas{p.id===activeId?' · Actual':''}</small>
+      <div className="library-actions">{!trash&&<><button onClick={()=>onOpen(p.building,p.id)}>Abrir</button><button onClick={()=>{const name=window.prompt('Nombre del proyecto',p.building.name)?.trim();if(name)change(current=>current.map(v=>v.id===p.id?{...v,updated:new Date().toISOString(),building:{...v.building,name:name.slice(0,100),floors:v.building.floors.map(f=>({...f,plan:{...f.plan,name:name.slice(0,100)}}))}}:v));}} disabled={p.id===activeId}>Renombrar</button><button onClick={()=>change(current=>[...current,{...p,id:uid(),updated:new Date().toISOString(),building:{...p.building,name:`${p.building.name} (copia)`.slice(0,100),floors:p.building.floors.map(f=>({...f,plan:{...f.plan,name:`${p.building.name} (copia)`.slice(0,100)}}))}}])}>Duplicar</button></>}
+      <button onClick={()=>save(JSON.stringify(p.building),`${p.building.name.replace(/[^\p{L}\p{N} _-]/gu,'')||'Proyecto'}.trazocasa`)}>Descargar</button>
+      {trash?<button onClick={()=>change(current=>current.map(v=>v.id===p.id?{...v,deleted:false}:v))}>Restaurar</button>:<button disabled={p.id===activeId} onClick={()=>setConfirm(p.id)}>Eliminar</button>}
+      </div>{confirm===p.id&&<p>¿Mover a la papelera? <button onClick={()=>{change(current=>current.map(v=>v.id===p.id?{...v,deleted:true}:v));setConfirm(undefined);}}>Confirmar</button> <button onClick={()=>setConfirm(undefined)}>Cancelar</button></p>}
+    </article>;})}</div>
+    {!items.some(p=>p.deleted===trash)&&<p>{trash?'La papelera está vacía.':'Todavía no hay proyectos guardados.'}</p>}
+    <p>Para renombrar el proyecto actual, editá su título en el editor. Para eliminarlo, abrí otro proyecto primero. Importar un respaldo agrega copias, sin reemplazar trabajos.</p>
+  </section></div>;
+}

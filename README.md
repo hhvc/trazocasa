@@ -176,3 +176,13 @@ Drive queda oculto por defecto, incluso si existen credenciales. Su implementaci
 El botón **Apoyar TrazoCasa** utiliza por defecto el enlace público `https://link.mercadopago.com.ar/trazocasa`. Puede reemplazarse con `VITE_DONATION_URL` y una nueva compilación. Definir esa variable vacía oculta el botón. Abre el proveedor en otra pestaña; TrazoCasa no recoge datos de tarjetas, verifica pagos ni desbloquea funciones. Las comisiones y condiciones corresponden al proveedor elegido.
 
 Próximas mejoras propuestas: recuperación local más robusta, impresión a escala y plantillas profesionales. No se implementan todavía suscripciones, almacenamiento remoto propio ni servicios de IA.
+
+## Mis proyectos: biblioteca local
+
+Menú → Mis proyectos reúne los proyectos guardados en este navegador. El trabajo anterior se incorpora a la biblioteca al abrir esta versión. Cada proyecto nuevo o importado conserva su propia identidad; abrir desde la biblioteca inicia un historial de edición independiente. La miniatura representa las paredes de la planta activa.
+
+Permite abrir, duplicar, renombrar proyectos no activos, descargar archivos individuales y mover proyectos no activos a una papelera recuperable. El título del proyecto activo se cambia desde el editor. La papelera no se vacía automáticamente y sus proyectos pueden restaurarse. No hay eliminación definitiva en esta versión.
+
+Descargar respaldo completo incluye proyectos y papelera en un JSON. Importar respaldo acepta hasta 20 MB, valida todos los proyectos y agrega copias con nuevas identidades; no reemplaza los existentes. No debe abrirse como archivo de plano: se importa desde Mis proyectos.
+
+El almacenamiento continúa en localStorage y está sujeto a la cuota del navegador. Un fallo se muestra como guardado pendiente y solicita descargar una copia; no se purgan trabajos automáticamente. Los datos pertenecen al navegador, perfil y origen del sitio: no se sincronizan entre dispositivos y pueden perderse al borrar los datos del navegador. Evitá editar el mismo proyecto en varias pestañas simultáneamente. El respaldo descargado sigue siendo necesario. No se guarda todavía un historial de versiones entre sesiones.
