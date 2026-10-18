@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { House, Menu, ChevronDown, Check, FilePlus2, ArrowUpFromLine, ArrowDownToLine, CircleHelp } from 'lucide-react';
 
-type Props = { name:string; saved:boolean; onName:(name:string)=>void; onRename:()=>void; onNew:()=>void; onOpen:()=>void; onSave:()=>void; onLibrary:()=>void; onDrive:()=>void; onPrint:()=>void; onHelp:()=>void; onSvg:()=>void; onPng:()=>void; exporting:boolean; dragging:boolean };
+type Props = { name:string; saved:boolean; onName:(name:string)=>void; onRename:()=>void; onNew:()=>void; onOpen:()=>void; onSave:()=>void; onStart:()=>void; onLibrary:()=>void; onDrive:()=>void; onPrint:()=>void; onHelp:()=>void; onSvg:()=>void; onPng:()=>void; exporting:boolean; dragging:boolean };
 const driveEnabled = import.meta.env.VITE_ENABLE_GOOGLE_DRIVE === 'true';
 function donationLink(): string | undefined {
   try { const url = new URL(import.meta.env.VITE_DONATION_URL ?? 'https://link.mercadopago.com.ar/trazocasa'); return url.protocol === 'https:' && !url.username && !url.password ? url.href : undefined; } catch { return undefined; }
@@ -28,6 +28,7 @@ export function ProjectHeader(p:Props) {
     <div className="project-disclosure" ref={container} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setOpen(false);}}>
       <button ref={trigger} className="project-menu-trigger" aria-expanded={open} aria-controls="project-menu" onClick={()=>setOpen(v=>!v)}><Menu size={18}/><span>Menú</span><ChevronDown size={14}/></button>
       {open&&<nav id="project-menu" className="project-dropdown" aria-label="Acciones del proyecto">
+        <button disabled={p.dragging} onClick={()=>act(p.onStart)}>Inicio y plantillas</button>
         <button disabled={p.dragging} onClick={()=>act(p.onLibrary)}>Mis proyectos</button>
         <button onClick={()=>act(p.onNew)}><FilePlus2 size={17}/>Nuevo proyecto</button>
         <button onClick={()=>act(p.onOpen)}><ArrowUpFromLine size={17}/>Abrir archivo</button>

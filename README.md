@@ -186,3 +186,9 @@ Permite abrir, duplicar, renombrar proyectos no activos, descargar archivos indi
 Descargar respaldo completo incluye proyectos y papelera en un JSON. Importar respaldo acepta hasta 20 MB, valida todos los proyectos y agrega copias con nuevas identidades; no reemplaza los existentes. No debe abrirse como archivo de plano: se importa desde Mis proyectos.
 
 El almacenamiento continúa en localStorage y está sujeto a la cuota del navegador. Un fallo se muestra como guardado pendiente y solicita descargar una copia; no se purgan trabajos automáticamente. Los datos pertenecen al navegador, perfil y origen del sitio: no se sincronizan entre dispositivos y pueden perderse al borrar los datos del navegador. Evitá editar el mismo proyecto en varias pestañas simultáneamente. El respaldo descargado sigue siendo necesario. No se guarda todavía un historial de versiones entre sesiones.
+
+## Inicio, plantillas y primeros pasos
+
+La bienvenida aparece una vez por navegador y puede reabrirse desde Menú → Inicio y plantillas. Permite continuar en el editor, abrir Mis proyectos o crear un proyecto con nombre propio, en blanco o con una plantilla de monoambiente, un dormitorio o dos dormitorios. La unidad sigue siendo metros. Las plantillas son ilustrativas y completamente editables; no constituyen diseños constructivos. Las miniaturas de la biblioteca muestran paredes, no una vista completa del mobiliario.
+
+Crear guarda primero el trabajo actual y el nuevo proyecto en la biblioteca. Si falla el almacenamiento, conserva el editor actual y muestra un aviso. Una guía manual de cuatro pasos acompaña el dibujo sin bloquearlo: habitación, puerta, medidas y copia descargada. Omitir o finalizar se recuerda en este navegador; se puede iniciar otra vez desde la bienvenida. Avanzar en la guía no verifica automáticamente que se haya realizado la acción.

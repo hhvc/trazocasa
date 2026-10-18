@@ -13,3 +13,13 @@ test('library round trip preserves complete project and trash status',()=>{const
 test('invalid backups and duplicate project IDs are rejected',()=>{assert.throws(()=>lib.parseLibrary({format:'wrong',projects:[]}));const item=record();assert.throws(()=>lib.parseLibrary({format:'trazocasa-library-1',projects:[item,item]}));assert.throws(()=>lib.parseLibrary({format:'trazocasa-library-1',projects:[{...item,building:{}}]}));});
 test('failed persistence does not report success or replace prior data',()=>{const store=storage();const item=record();lib.writeLibrary([item],store);const before=store.getItem();assert.throws(()=>lib.writeLibrary([],{setItem(){throw new Error('QuotaExceededError');}}));assert.equal(store.getItem(),before);});
 test('updates preserve other projects and never revive a trashed project',()=>{globalThis.localStorage=storage();const item=record();lib.writeLibrary([item,{...item,id:'trash',deleted:true}]);lib.storeProject('new',item.building);lib.storeProject('trash',item.building);assert.equal(lib.readLibrary().length,3);assert.equal(lib.readLibrary().find(p=>p.id==='trash').deleted,true);lib.storeProject(item.id,{...item.building,name:'Changed'});assert.equal(lib.readLibrary().find(p=>p.id===item.id).building.name,'Changed');delete globalThis.localStorage;});
+
+const templates=await import(url(compile(await readFile(new URL('./templates.ts',import.meta.url),'utf8')).replace("'./model'",JSON.stringify(modelUrl))));
+test('all starter templates validate and create independent editable projects',()=>{
+ for(const id of ['blank','studio','one','two']){
+  const first=templates.createTemplate(id,'Mi casa');const second=templates.createTemplate(id,'Otra casa');
+  assert.equal(first.name,'Mi casa');assert.equal(second.name,'Otra casa');
+  if(id!=='blank'){assert.ok(first.walls.length);assert.ok(first.openings.some(o=>o.kind==='door'));assert.ok(first.furniture.length);}
+  first.labels.push({id:'test',x:0,y:0,text:'Only first'});assert.ok(!second.labels.some(l=>l.id==='test'));
+ }
+});
