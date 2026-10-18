@@ -156,3 +156,11 @@ La herramienta **Escaleras (E)** inserta escaleras en L o U como un grupo de dos
 Las medidas de cada pieza van de 0,20 a 10 m. Para que las piezas encajen, el fondo del descanso debe ser al menos igual al ancho de los tramos; en U el ancho total no supera 10 m. Son límites del editor, no recomendaciones constructivas. La huella total se muestra antes de colocar y el puntero representa el centro de su rectángulo envolvente. La vista previa y el ajuste a elementos usan el conjunto completo.
 
 Una inserción ocupa un solo paso de Deshacer y tres lugares del límite de 500 muebles por planta. Los grupos admiten movimiento, giro, duplicado y desagrupado para editar cada pieza. Se mantiene el formato v7, con los tipos de pieza ya existentes. Las flechas indican subida, sin cálculo de alturas, huellas, contrahuellas o normativa de obra.
+
+## Google Drive (0.13)
+
+Menú → Google Drive permite conectar una cuenta, abrir un proyecto, guardar cambios y guardar una copia. La descarga local y el autoguardado continúan disponibles. La integración requiere tres variables públicas de configuración: ver [Activar Google Drive](docs/google-drive.md) y `.env.example`.
+
+Los archivos contienen todas las plantas y conservan formato v7. Se valida el contenido y se compara la versión remota antes de actualizar para detectar cambios previos de otro dispositivo. No hay edición simultánea ni sincronización automática. La sesión y el vínculo al archivo remoto no se conservan al recargar: para actualizar el original hay que volver a abrirlo desde Drive. El enlace del panel permite compartir desde Google sin que TrazoCasa modifique permisos.
+
+Sin credenciales configuradas se muestra el estado no habilitado. Las pruebas con API y SDK simulados no sustituyen la validación con cuentas reales y dominios autorizados; la guía incluye los casos pendientes de activación.

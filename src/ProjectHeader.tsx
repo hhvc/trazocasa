@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { House, Menu, ChevronDown, Check, FilePlus2, ArrowUpFromLine, ArrowDownToLine, CircleHelp } from 'lucide-react';
 
-type Props = { name:string; saved:boolean; onName:(name:string)=>void; onRename:()=>void; onNew:()=>void; onOpen:()=>void; onSave:()=>void; onHelp:()=>void; onSvg:()=>void; onPng:()=>void; exporting:boolean; dragging:boolean };
+type Props = { name:string; saved:boolean; onName:(name:string)=>void; onRename:()=>void; onNew:()=>void; onOpen:()=>void; onSave:()=>void; onDrive:()=>void; onHelp:()=>void; onSvg:()=>void; onPng:()=>void; exporting:boolean; dragging:boolean };
 export function ProjectHeader(p:Props) {
   const [open,setOpen]=useState(false);
   const container=useRef<HTMLDivElement>(null), trigger=useRef<HTMLButtonElement>(null);
@@ -27,11 +27,13 @@ export function ProjectHeader(p:Props) {
         <button onClick={()=>act(p.onOpen)}><ArrowUpFromLine size={17}/>Abrir archivo</button>
         <button onClick={()=>act(p.onSave)}><ArrowDownToLine size={17}/>Guardar archivo<kbd>Ctrl S</kbd></button>
         <hr/>
+        <button disabled={p.dragging} onClick={()=>act(p.onDrive)}>Google Drive…</button>
+        <hr/>
         <button disabled={p.exporting||p.dragging} onClick={()=>act(p.onPng)}>Exportar imagen PNG</button>
         <button disabled={p.dragging} onClick={()=>act(p.onSvg)}>Exportar imagen SVG</button>
         <hr/>
         <button onClick={()=>act(p.onHelp)}><CircleHelp size={17}/>Cómo empezar</button>
-        <p>Tu plano se guarda en este navegador. Descargá una copia para conservarlo.</p>
+        <p>El autoguardado es local. Guardá manualmente en Drive o descargá una copia.</p>
       </nav>}
     </div>
   </header>;
