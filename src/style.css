@@ -51,3 +51,42 @@
 .quick-guide { position:fixed; bottom:40px; left:50%; transform:translateX(-50%); width:min(440px,94vw); background:#fffdf6; border:1px solid #b9c7b5; border-radius:12px; padding:16px; z-index:30; box-shadow:0 6px 24px #0002; }
 .quick-guide p { margin:8px 0; }
 .quick-guide button { padding:8px; }
+
+/* Compact editing keeps the drawing visible; panels are explicitly opened. */
+.mobile-editor-nav,.mobile-panel-close { display:none; }
+@media(max-width:1024px){
+ .app { height:100dvh; min-height:0; overflow:hidden; }
+ .mobile-editor-nav { display:flex; flex-shrink:0; gap:4px; padding:4px 8px; border-bottom:1px solid #dfe3d8; background:#fffefa; }
+ .mobile-editor-nav button { min-height:44px; flex:1; padding:6px; font-size:12px; }
+ .mobile-editor-nav button[aria-pressed="true"] { background:#e6ecdf; color:#295246; font-weight:600; }
+ .workspace { position:relative; display:block; flex:1; min-height:0; }
+ .canvas-section { height:100%; min-height:0; width:100%; }
+ .workspace>.sidebar,.workspace>.inspector { display:none; }
+ .workspace.mobile-panel-tools>.sidebar,.workspace.mobile-panel-details>.inspector { display:flex; flex-direction:column; position:absolute; top:0; bottom:0; width:min(340px,100%); max-width:100%; z-index:5; overflow-y:auto; overscroll-behavior:contain; padding:12px; background:#fffefa; box-shadow:0 8px 24px #0003; }
+ .workspace.mobile-panel-tools>.sidebar { left:0; }
+ .workspace.mobile-panel-details>.inspector { right:0; }
+ .mobile-panel-close { display:flex; min-height:44px; flex-shrink:0; background:#edf0e6; margin-bottom:8px; }
+ .sidebar .tool-list { display:grid; grid-template-columns:1fr 1fr; overflow:visible; margin:8px 0; gap:6px; }
+ .sidebar .tool { flex-direction:row; min-height:44px; font-size:12px; justify-content:flex-start; }
+ .sidebar .sidebar-section { display:block; margin-top:12px; padding-top:10px; }
+ .sidebar-top,.tip-card,.sidebar-footer { display:none; }
+ .inspector-heading,.privacy-note { flex-shrink:0; }
+ .canvas-top { top:8px; left:8px; right:8px; gap:6px; }
+ .canvas-bottom { bottom:10px; left:10px; right:10px; }
+ .floor-switch { min-width:0; flex-shrink:1; }
+ .floor-switch select { min-width:0; max-width:140px; }
+ .history { flex-shrink:0; }
+ .history button,.zoom-controls button,.floor-switch button,.floor-switch select,.project-menu-trigger { min-height:44px; min-width:44px; }
+ .statusbar { position:static; min-height:0; padding:5px 10px; flex-shrink:0; }
+ .statusbar>span:first-child { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; display:block; }
+ .sidebar button,.inspector button,.modal button,.project-dropdown button,.project-dropdown a { min-height:44px; }
+ input,select,textarea,.compact-project input { font-size:16px; }
+ .modal-backdrop { padding:10px; }
+ .modal { max-height:calc(100dvh - 20px); overflow-y:auto; max-width:100%; }
+ .quick-guide { bottom:30px; max-height:35dvh; overflow:auto; width:min(440px,94vw); }
+ .library-grid { grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr)); }
+}
+@media(pointer:coarse){
+ button { touch-action:manipulation; }
+ .drawing [data-id]>line[data-editor] { stroke-width:24px; vector-effect:non-scaling-stroke; }
+}

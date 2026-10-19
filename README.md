@@ -192,3 +192,11 @@ El almacenamiento continúa en localStorage y está sujeto a la cuota del navega
 La bienvenida aparece una vez por navegador y puede reabrirse desde Menú → Inicio y plantillas. Permite continuar en el editor, abrir Mis proyectos o crear un proyecto con nombre propio, en blanco o con una plantilla de monoambiente, un dormitorio o dos dormitorios. La unidad sigue siendo metros. Las plantillas son ilustrativas y completamente editables; no constituyen diseños constructivos. Las miniaturas de la biblioteca muestran paredes, no una vista completa del mobiliario.
 
 Crear guarda primero el trabajo actual y el nuevo proyecto en la biblioteca. Si falla el almacenamiento, conserva el editor actual y muestra un aviso. Una guía manual de cuatro pasos acompaña el dibujo sin bloquearlo: habitación, puerta, medidas y copia descargada. Omitir o finalizar se recuerda en este navegador; se puede iniciar otra vez desde la bienvenida. Avanzar en la guía no verifica automáticamente que se haya realizado la acción.
+
+## Edición compacta en tablet y celular
+
+Hasta 1024 px de ancho, el editor dedica el espacio principal al plano. La barra Plano / Herramientas / Detalles abre paneles plegables; Mover activa el desplazamiento del lienzo. Volver al plano cierra el panel conservando la herramienta elegida. Los ajustes de cuadrícula, medidas y alineación también están disponibles en Herramientas.
+
+Zoom, historial y controles principales tienen áreas de al menos 44 px en esta vista. Los campos usan texto de 16 px y las paredes tienen un área táctil ampliada cuando el dispositivo declara un puntero de baja precisión. Se ignoran pulsaciones de punteros secundarios para reducir inserciones accidentales con varios dedos. No se incorpora zoom por pellizco: se utilizan los botones + / − y Encuadrar.
+
+La compilación y las pruebas automatizadas fueron comprobadas. La revisión visual en navegador y la prueba física táctil quedaron pendientes: el navegador de revisión no pudo abrirse por un límite de uso de la aprobación automática.
