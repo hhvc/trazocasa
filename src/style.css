@@ -100,3 +100,7 @@
 .selection-actions-name { max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 8px; font-weight:600; }
 @media(max-width:1024px){.selection-actions { bottom:70px; }.selection-actions-name { width:100%; max-width:100%; text-align:center; font-size:12px; }.selection-actions button { padding:8px; }.mobile-panel-tools .selection-actions,.mobile-panel-details .selection-actions { display:none; }}
 @media(max-height:500px){.selection-actions-name { display:none; }.selection-actions { bottom:64px; }}
+.library-edit { margin:12px 0; padding:12px; background:#edf0e6; border-radius:8px; }
+.library-edit label,.library-edit input { display:block; width:100%; }
+.library-edit input { min-height:44px; margin:8px 0; padding:8px; }
+.version-card { border-top:1px solid #dfe3d8; margin-top:12px; padding-top:12px; }

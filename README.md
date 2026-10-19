@@ -228,3 +228,9 @@ Descargar resumen CSV genera un archivo local con separador punto y coma, coma d
 Al seleccionar un elemento aparece una barra junto a los controles inferiores del lienzo. Muebles, escaleras y grupos admiten Duplicar y Girar 90°; todos los elementos seleccionados admiten Eliminar y Quitar selección. Al eliminar una pared también se eliminan sus aberturas, igual que desde el inspector. Deshacer recupera la operación completa.
 
 Las acciones reutilizan las validaciones del panel de detalles. La barra se oculta durante el arrastre, al usar otras herramientas, durante la guía inicial y cuando se abre un panel móvil. Los botones tienen un alto mínimo de 44 px. No forma parte del SVG ni de las exportaciones. La revisión visual sigue pendiente.
+
+## Revisión de biblioteca en navegador (19/10/2026)
+
+Se verificó creación desde plantilla, encuadre a 390 × 844, duplicación, envío a papelera y recuperación. Se detectó que los diálogos nativos prompt no funcionan en el navegador integrado. Guardar versión y Renombrar ahora utilizan formularios dentro de la biblioteca; restaurar usa una confirmación integrada. Se comprobó creación de versión, restauración y presencia de la versión automática de seguridad «Antes de restaurar» (conservada como manual).
+
+La revisión no cubre aún impresión física, importación de respaldos ni gestos en hardware táctil. La imagen de referencia se pospone mientras se completan estas comprobaciones.
