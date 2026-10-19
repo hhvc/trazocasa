@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { House, Menu, ChevronDown, Check, FilePlus2, ArrowUpFromLine, ArrowDownToLine, CircleHelp } from 'lucide-react';
 
-type Props = { name:string; saved:boolean; onName:(name:string)=>void; onRename:()=>void; onNew:()=>void; onOpen:()=>void; onSave:()=>void; onStart:()=>void; onLibrary:()=>void; onDrive:()=>void; onPrint:()=>void; onHelp:()=>void; onSvg:()=>void; onPng:()=>void; exporting:boolean; dragging:boolean };
+type Props = { name:string; saved:boolean; onName:(name:string)=>void; onRename:()=>void; onNew:()=>void; onOpen:()=>void; onSave:()=>void; onSummary:()=>void; onStart:()=>void; onLibrary:()=>void; onDrive:()=>void; onPrint:()=>void; onHelp:()=>void; onSvg:()=>void; onPng:()=>void; exporting:boolean; dragging:boolean };
 const driveEnabled = import.meta.env.VITE_ENABLE_GOOGLE_DRIVE === 'true';
 function donationLink(): string | undefined {
   try { const url = new URL(import.meta.env.VITE_DONATION_URL ?? 'https://link.mercadopago.com.ar/trazocasa'); return url.protocol === 'https:' && !url.username && !url.password ? url.href : undefined; } catch { return undefined; }
@@ -35,6 +35,7 @@ export function ProjectHeader(p:Props) {
         <button onClick={()=>act(p.onSave)}><ArrowDownToLine size={17}/>Guardar archivo<kbd>Ctrl S</kbd></button>
         <hr/>
         {driveEnabled&&<><button disabled={p.dragging} onClick={()=>act(p.onDrive)}>Google Drive…</button><hr/></>}
+        <button disabled={p.dragging} onClick={()=>act(p.onSummary)}>Resumen de superficies</button>
         <button disabled={p.dragging||p.exporting} onClick={()=>act(p.onPrint)}>Imprimir / Guardar PDF</button>
         <button disabled={p.exporting||p.dragging} onClick={()=>act(p.onPng)}>Exportar imagen PNG</button>
         <button disabled={p.dragging} onClick={()=>act(p.onSvg)}>Exportar imagen SVG</button>

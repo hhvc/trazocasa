@@ -68,3 +68,13 @@ test('automatic versions are spaced and unchanged saves do not add versions',()=
  lib.storeProject(item.id,{...item.building,name:'Cambio 3'});
  assert.equal(lib.readLibrary()[0].versions.length,2);delete globalThis.localStorage;
 });
+const summaries=await import(url(compile(await readFile(new URL('./surfaceSummary.ts',import.meta.url),'utf8')).replace("'./model'",JSON.stringify(modelUrl))));
+test('surface summary totals independent contours across floors without merging names',()=>{
+ const b=buildingFromPlan(emptyPlan());const shape={id:'s1',name:'Ambiente',points:[{x:0,y:0},{x:4,y:0},{x:4,y:3},{x:0,y:3}]};
+ b.floors[0].plan.surfaces=[shape,{...shape,id:'s2'}];b.floors.push({...b.floors[0],id:'up',name:'Alta',plan:{...emptyPlan(),surfaces:[{...shape,id:'s3'}]}});
+ const summary=summaries.surfaceSummary(b);assert.equal(summary.count,3);assert.equal(summary.total,36);assert.equal(summary.floors[0].total,24);assert.equal(summary.floors[1].total,12);
+});
+test('CSV escapes names, blocks formula prefixes and explains contour totals',()=>{
+ const b=buildingFromPlan(emptyPlan());b.name='=SUM(1;2)';b.floors[0].name='Planta "alta"';
+ const csv=summaries.surfacesCsv(b);assert.ok(csv.startsWith('\uFEFF'));assert.ok(csv.includes("'=SUM(1;2)"));assert.ok(csv.includes('Planta ""alta""'));assert.ok(csv.includes('no descuenta superposiciones'));assert.equal(summaries.surfaceSummary(b).count,0);
+});
