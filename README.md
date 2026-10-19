@@ -234,3 +234,11 @@ Las acciones reutilizan las validaciones del panel de detalles. La barra se ocul
 Se verificó creación desde plantilla, encuadre a 390 × 844, duplicación, envío a papelera y recuperación. Se detectó que los diálogos nativos prompt no funcionan en el navegador integrado. Guardar versión y Renombrar ahora utilizan formularios dentro de la biblioteca; restaurar usa una confirmación integrada. Se comprobó creación de versión, restauración y presencia de la versión automática de seguridad «Antes de restaurar» (conservada como manual).
 
 La revisión no cubre aún impresión física, importación de respaldos ni gestos en hardware táctil. La imagen de referencia se pospone mientras se completan estas comprobaciones.
+
+## Imagen de referencia por planta
+
+Menú → Imagen de referencia permite cargar PNG/JPEG (hasta 10 MB y 40 megapíxeles), convertirlos localmente a JPEG de hasta 1400 px de lado y 400 000 caracteres, y conservarlos dentro del proyecto. Las transparencias originales se convierten a fondo blanco. No se suben imágenes a servicios externos. La compresión puede reducir detalles finos.
+
+Se calibra marcando dos puntos sobre la vista previa e indicando su distancia real en metros. También permite indicar ancho total, posición X/Y de la esquina superior izquierda, opacidad y visibilidad. Aplicar encuadra la referencia. La imagen permanece fija al dibujar, sin selección ni arrastre; las paredes y muebles no se mueven al recalibrarla. No corrige perspectiva, no vectoriza ni admite PDF o giro en esta primera versión.
+
+La imagen se incluye en archivos, biblioteca, versiones y respaldo; aumenta el uso del almacenamiento local. Se puede quitar con Deshacer disponible. Está excluida de PNG, SVG, impresión y resumen de superficies. Encuadrar plano continúa considerando el dibujo, no la referencia. Se mantiene el formato de proyecto actual con un campo opcional: versiones anteriores de TrazoCasa pueden descartar la referencia al guardar.

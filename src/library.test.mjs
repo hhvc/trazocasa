@@ -78,3 +78,19 @@ test('CSV escapes names, blocks formula prefixes and explains contour totals',()
  const b=buildingFromPlan(emptyPlan());b.name='=SUM(1;2)';b.floors[0].name='Planta "alta"';
  const csv=summaries.surfacesCsv(b);assert.ok(csv.startsWith('\uFEFF'));assert.ok(csv.includes("'=SUM(1;2)"));assert.ok(csv.includes('Planta ""alta""'));assert.ok(csv.includes('no descuenta superposiciones'));assert.equal(summaries.surfaceSummary(b).count,0);
 });
+const referenceModule=await import(url(compile(await readFile(new URL('./reference.ts',import.meta.url),'utf8'))));
+test('reference calibration handles horizontal vertical and invalid distances',()=>{
+ assert.equal(referenceModule.calibratedWidth({x:0,y:0},{x:.5,y:0},.5,5),10);
+ assert.equal(referenceModule.calibratedWidth({x:0,y:0},{x:0,y:1},.5,5),10);
+ assert.throws(()=>referenceModule.calibratedWidth({x:0,y:0},{x:0,y:0},1,5));
+ assert.throws(()=>referenceModule.calibratedWidth({x:0,y:0},{x:1,y:0},1,-1));
+});
+test('reference survives project validation and backup, rejects external or oversized data',async()=>{
+ const {validatePlan}=await import(modelUrl);const p=emptyPlan();
+ p.reference={data:'data:image/jpeg;base64,/9j/2Q==',name:'Croquis',x:0,y:0,width:10,height:5,opacity:.4,visible:true};
+ assert.deepEqual(validatePlan(p).reference,p.reference);
+ const item={...record(),building:buildingFromPlan(p)};assert.deepEqual(lib.parseLibrary(JSON.parse(lib.encodeLibrary([item])))[0].building.floors[0].plan.reference,p.reference);
+ for(const data of ['https://example.com/image.jpg','data:image/svg+xml;base64,AAAA','data:image/jpeg;base64,'+'A'.repeat(400001)])assert.throws(()=>validatePlan({...p,reference:{...p.reference,data}}));
+ assert.throws(()=>validatePlan({...p,reference:{...p.reference,width:0}}));
+ assert.equal(validatePlan(emptyPlan()).reference,undefined);
+});

@@ -29,7 +29,8 @@ export const furnitureCatalog: { kind: FurnitureKind; name: string; width: numbe
   { kind: 'kitchenSink', name: 'Bacha de cocina', width: .8, depth: .5 },
   { kind: 'toilet', name: 'Inodoro', width: .4, depth: .7 },
 ];
-export type Plan = { format: 'trazocasa'; version: 6; surfaces: Surface[]; dimensions: Dimension[]; name: string; walls: Wall[]; openings: Opening[]; labels: Label[]; furniture: Furniture[] };
+export type ReferenceImage = {data:string;name:string;x:number;y:number;width:number;height:number;opacity:number;visible:boolean};
+export type Plan = { reference?:ReferenceImage; format: 'trazocasa'; version: 6; surfaces: Surface[]; dimensions: Dimension[]; name: string; walls: Wall[]; openings: Opening[]; labels: Label[]; furniture: Furniture[] };
 export const uid = () => crypto.randomUUID();
 export const distance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y);
 export const snap = (n: number) => Math.round(n * 10) / 10;
@@ -67,6 +68,7 @@ export function validatePlan(value: unknown): Plan {
     if (typeof s.name !== 'string' || !s.name.trim() || s.name.length > 80) throw new Error('El nombre de la superficie no es válido.');
     validateSurface(s.points);
   }
+  if(p.reference!==undefined){const r=p.reference;if(!r||typeof r.data!=='string'||r.data.length>400_000||!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(r.data)||typeof r.name!=='string'||r.name.length>100||!point(r)||!finite(r.width)||!finite(r.height)||r.width<.1||r.height<.1||r.width>100||r.height>100||!finite(r.opacity)||r.opacity<0||r.opacity>1||typeof r.visible!=='boolean')throw new Error('La imagen de referencia no es válida.');}
   const checked: Plan = { ...p, version: 6, surfaces, dimensions, furniture, openings: [] };
   for (const o of p.openings) {
     const w = p.walls.find(w => w.id === o.wallId);
@@ -82,7 +84,7 @@ export function validatePlan(value: unknown): Plan {
     if (f.kind === 'roundCoffeeTable' && f.width !== f.depth) throw new Error('La mesa redonda debe tener un único diámetro.');
     if (!point(f) || !furnitureCatalog.some(item => item.kind === f.kind) || !finite(f.width) || !finite(f.depth) || f.width < .2 || f.width > 10 || f.depth < .2 || f.depth > 10 || !finite(f.rotation) || f.rotation < 0 || f.rotation >= 360) throw new Error('El proyecto contiene muebles inválidos.');
   }
-  return { format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y}))})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
+  return { ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y}))})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
 }
 export function sample(): Plan {
   const wall = (id: string, x: number, y: number, x2: number, y2: number): Wall => ({ id, a: { x, y }, b: { x: x2, y: y2 } });
