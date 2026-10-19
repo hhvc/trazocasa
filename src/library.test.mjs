@@ -40,3 +40,31 @@ test('fit respects printable bounds and orientation for both paper sizes',()=>{
  }
  assert.throws(()=>printModule.printLayout(0,1,{paper:'A4',orientation:'portrait',scale:'fit'}));
 });
+test('named versions survive backup and restoration preserves current work',()=>{
+ let project=record();project={...project,versions:lib.appendVersion(project,'Original')};
+ const original=project.versions[0];project.building={...project.building,name:'Ampliación'};
+ const restored=lib.restoreVersion(project,original.id);
+ assert.equal(restored.building.name,original.building.name);
+ assert.equal(restored.versions.at(-1).building.name,'Ampliación');
+ assert.equal(restored.versions.at(-1).manual,true);
+ assert.deepEqual(lib.parseLibrary(JSON.parse(lib.encodeLibrary([restored]))),[restored]);
+});
+test('history limits never discard manual versions or mutate input on failure',()=>{
+ let project=record();for(let i=0;i<20;i++)project={...project,versions:lib.appendVersion(project,'Manual '+i)};
+ const before=JSON.stringify(project);assert.throws(()=>lib.appendVersion(project,'Extra'),/límite/);
+ assert.throws(()=>lib.restoreVersion(project,project.versions[0].id),/límite/);
+ assert.equal(JSON.stringify(project),before);
+ project.versions[0].manual=false;
+ const next=lib.appendVersion(project,'Nueva');assert.equal(next.length,20);assert.ok(!next.some(v=>v.id===project.versions[0].id));
+});
+test('automatic versions are spaced and unchanged saves do not add versions',()=>{
+ globalThis.localStorage=storage();const item=record();lib.writeLibrary([item]);
+ lib.storeProject(item.id,item.building);assert.equal(lib.readLibrary()[0].versions,undefined);
+ lib.storeProject(item.id,{...item.building,name:'Cambio 1'});
+ assert.equal(lib.readLibrary()[0].versions.length,1);
+ lib.storeProject(item.id,{...item.building,name:'Cambio 2'});
+ assert.equal(lib.readLibrary()[0].versions.length,1);
+ const current=lib.readLibrary();current[0].versions[0].created=new Date(Date.now()-301000).toISOString();lib.writeLibrary(current);
+ lib.storeProject(item.id,{...item.building,name:'Cambio 3'});
+ assert.equal(lib.readLibrary()[0].versions.length,2);delete globalThis.localStorage;
+});
