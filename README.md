@@ -200,3 +200,11 @@ Hasta 1024 px de ancho, el editor dedica el espacio principal al plano. La barra
 Zoom, historial y controles principales tienen áreas de al menos 44 px en esta vista. Los campos usan texto de 16 px y las paredes tienen un área táctil ampliada cuando el dispositivo declara un puntero de baja precisión. Se ignoran pulsaciones de punteros secundarios para reducir inserciones accidentales con varios dedos. No se incorpora zoom por pellizco: se utilizan los botones + / − y Encuadrar.
 
 La compilación y las pruebas automatizadas fueron comprobadas. La revisión visual en navegador y la prueba física táctil quedaron pendientes: el navegador de revisión no pudo abrirse por un límite de uso de la aprobación automática.
+
+## Impresión a escala
+
+Menú → Imprimir / Guardar PDF abre una instantánea de la planta activa. La ventana permite elegir A4/A3, orientación horizontal/vertical y 1:50, 1:100 o Ajustar a página. Reserva márgenes de 12 mm y espacio para título, planta y referencia de escala. Los límites consideran todo el contenido exportado, con su margen gráfico.
+
+En escala fija, 1 metro ocupa 20 mm a 1:50 o 10 mm a 1:100. Si el dibujo no cabe, se avisa y deshabilita Imprimir; no se reduce automáticamente ni se divide en varias hojas. Ajustar a página conserva la proporción y se identifica como sin escala fija. Su barra de control mide 5 cm en papel; en escala fija, la barra representa 1 metro del plano.
+
+En el diálogo de impresión hay que seleccionar el mismo papel y orientación, usar 100 % / tamaño real y desactivar encabezados y pies del navegador. Comprobar la barra con una regla: el navegador y el controlador de impresora pueden aplicar ajustes ajenos a la aplicación. Los nombres largos se recortan en el encabezado para conservar las dimensiones de la hoja. El resultado sigue siendo un bosquejo, no documentación de obra. Pendiente validación visual de PDF e impresión física.

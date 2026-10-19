@@ -23,3 +23,20 @@ test('all starter templates validate and create independent editable projects',(
   first.labels.push({id:'test',x:0,y:0,text:'Only first'});assert.ok(!second.labels.some(l=>l.id==='test'));
  }
 });
+const printModule=await import(url(compile(await readFile(new URL('./printLayout.ts',import.meta.url),'utf8'))));
+test('print scale converts metres to physical millimetres without shrinking',()=>{
+ const a=printModule.printLayout(8,6,{paper:'A4',orientation:'landscape',scale:'50'});
+ assert.equal(a.drawingWidth,160);assert.equal(a.drawingHeight,120);assert.equal(a.mmPerMetre,20);assert.equal(a.fits,true);
+ const b=printModule.printLayout(20,10,{paper:'A4',orientation:'landscape',scale:'50'});
+ assert.equal(b.drawingWidth,400);assert.equal(b.fits,false);
+ const c=printModule.printLayout(20,10,{paper:'A4',orientation:'landscape',scale:'100'});
+ assert.equal(c.drawingWidth,200);assert.equal(c.fits,true);
+});
+test('fit respects printable bounds and orientation for both paper sizes',()=>{
+ for(const paper of ['A4','A3'])for(const orientation of ['portrait','landscape']){
+  const x=printModule.printLayout(30,20,{paper,orientation,scale:'fit'});
+  assert.equal(x.fits,true);assert.ok(x.drawingWidth<=x.availableWidth+.001);assert.ok(x.drawingHeight<=x.availableHeight+.001);
+  assert.ok(Math.abs(x.drawingWidth/x.drawingHeight-1.5)<1e-8);
+ }
+ assert.throws(()=>printModule.printLayout(0,1,{paper:'A4',orientation:'portrait',scale:'fit'}));
+});
