@@ -222,3 +222,9 @@ El respaldo completo incluye el historial; descargar un proyecto individual incl
 Menú → Resumen de superficies muestra cada contorno manual por planta, sus subtotales y la suma general. Los nombres repetidos no se fusionan. Se calcula con todos los decimales y se muestran dos; las superposiciones se suman, no se descuentan muros ni huecos y no se interpreta superficie construida. Si no hay contornos se ofrece Dibujar superficie. Ver cambia de planta, encuadra el plano y selecciona el contorno.
 
 Descargar resumen CSV genera un archivo local con separador punto y coma, coma decimal y codificación UTF-8 con BOM, incluyendo los subtotales y una nota sobre su alcance. No transmite datos ni requiere servicios externos. Los nombres que podrían interpretarse como fórmulas en una planilla se exportan como texto. La validación automatizada cubre totales por planta, contornos superpuestos, plantas vacías y escape de CSV; la revisión visual sigue pendiente.
+
+## Acciones rápidas sobre el plano
+
+Al seleccionar un elemento aparece una barra junto a los controles inferiores del lienzo. Muebles, escaleras y grupos admiten Duplicar y Girar 90°; todos los elementos seleccionados admiten Eliminar y Quitar selección. Al eliminar una pared también se eliminan sus aberturas, igual que desde el inspector. Deshacer recupera la operación completa.
+
+Las acciones reutilizan las validaciones del panel de detalles. La barra se oculta durante el arrastre, al usar otras herramientas, durante la guía inicial y cuando se abre un panel móvil. Los botones tienen un alto mínimo de 44 px. No forma parte del SVG ni de las exportaciones. La revisión visual sigue pendiente.
