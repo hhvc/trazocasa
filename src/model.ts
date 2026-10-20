@@ -4,9 +4,19 @@ export type Dimension = { id: string; a: Point; b: Point; offset: number };
 export type Wall = { id: string; a: Point; b: Point; thickness?: number };
 export type Opening = { id: string; wallId: string; t: number; width: number; kind: 'door' | 'window'; hinge?: 'start' | 'end'; swing?: 'negative' | 'positive' };
 export type Label = { id: string; x: number; y: number; text: string };
-export type FurnitureKind = 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer' | 'stairs' | 'stairLanding';
+export type FurnitureKind = 'argentineGrill' | 'firePit' | 'tree' | 'palm' | 'shrub' | 'pottedPlant' | 'smallCar' | 'mediumCar' | 'pickup' | 'nightstand' | 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer' | 'stairs' | 'stairLanding';
 export type Furniture = { groupId?: string; id: string; kind: FurnitureKind; x: number; y: number; width: number; depth: number; rotation: number };
 export const furnitureCatalog: { kind: FurnitureKind; name: string; width: number; depth: number }[] = [
+  { kind: 'argentineGrill', name: 'Parrilla argentina', width: 1.5, depth: .8 },
+  { kind: 'firePit', name: 'Fogonero', width: 1, depth: 1 },
+  { kind: 'tree', name: 'Árbol de copa', width: 3, depth: 3 },
+  { kind: 'palm', name: 'Palmera', width: 2.5, depth: 2.5 },
+  { kind: 'shrub', name: 'Arbusto', width: 1, depth: .8 },
+  { kind: 'pottedPlant', name: 'Planta en maceta', width: .5, depth: .5 },
+  { kind: 'smallCar', name: 'Auto chico', width: 1.7, depth: 3.8 },
+  { kind: 'mediumCar', name: 'Auto mediano', width: 1.8, depth: 4.5 },
+  { kind: 'pickup', name: 'Camioneta', width: 2, depth: 5.3 },
+  { kind: 'nightstand', name: 'Mesa de luz', width: .5, depth: .4 },
   { kind: 'stairs', name: 'Escalera recta', width: 1, depth: 3 },
   { kind: 'stairLanding', name: 'Descanso de escalera', width: 1, depth: 1 },
   { kind: 'tv', name: 'Televisor', width: 1.2, depth: .3 },

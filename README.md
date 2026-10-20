@@ -244,3 +244,13 @@ Se calibra marcando dos puntos sobre la vista previa e indicando su distancia re
 La imagen se incluye en archivos, biblioteca, versiones y respaldo; aumenta el uso del almacenamiento local. Se puede quitar con Deshacer disponible. Está excluida de PNG, SVG, impresión y resumen de superficies. Encuadrar plano continúa considerando el dibujo, no la referencia. Se mantiene el formato de proyecto actual con un campo opcional: versiones anteriores de TrazoCasa pueden descartar la referencia al guardar.
 
 La visibilidad de la imagen también se cambia desde el botón Ocultar referencia / Mostrar referencia sobre el lienzo, debajo del selector de planta. Aparece siempre que esa planta tenga una imagen, incluso si está oculta. Conserva calibración, posición y transparencia; se guarda con el proyecto y admite Deshacer. El control no se exporta.
+
+## Vehículos y mesa de luz
+
+Muebles incluye Auto chico (1,70 × 3,80 m), Auto mediano (1,80 × 4,50 m), Camioneta tipo pickup (2,00 × 5,30 m) y Mesa de luz (0,50 × 0,40 m). Las medidas son editables y admiten giro, duplicación, grupos, alineación y exportación como el resto del catálogo. Los vehículos representan carrocerías orientativas, sin espacio de circulación ni apertura de puertas; conviene ajustar las dimensiones al modelo real y contemplar los espejos.
+
+Se conserva el formato actual; editores anteriores no reconocen estos cuatro nuevos tipos de mobiliario.
+
+## Parrilla y jardín
+
+El catálogo incorpora Parrilla argentina (1,50 × 0,80 m, con rejilla y brasero lateral), Fogonero (1 × 1 m), Árbol de copa (3 × 3 m), Palmera (2,50 × 2,50 m), Arbusto (1 × 0,80 m) y Planta en maceta (0,50 × 0,50 m). Todos admiten medidas independientes, giro, duplicación, agrupación, alineación y exportación. Las medidas de vegetación representan su huella vista desde arriba, no el diámetro del tronco. Editores anteriores no reconocen estos nuevos tipos.
