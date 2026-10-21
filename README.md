@@ -254,3 +254,11 @@ Se conserva el formato actual; editores anteriores no reconocen estos cuatro nue
 ## Parrilla y jardín
 
 El catálogo incorpora Parrilla argentina (1,50 × 0,80 m, con rejilla y brasero lateral), Fogonero (1 × 1 m), Árbol de copa (3 × 3 m), Palmera (2,50 × 2,50 m), Arbusto (1 × 0,80 m) y Planta en maceta (0,50 × 0,50 m). Todos admiten medidas independientes, giro, duplicación, agrupación, alineación y exportación. Las medidas de vegetación representan su huella vista desde arriba, no el diámetro del tronco. Editores anteriores no reconocen estos nuevos tipos.
+
+## Proyecciones de techos y aleros
+
+Proyección (P) permite marcar puntos y Terminar abierta (mínimo dos) o Cerrar contorno (mínimo tres). Quitar último punto corrige el trazado; Cancelar o Escape lo descarta. En tablet/celular se vuelve al panel Herramientas para finalizar. Puede usarse la planta inferior como guía visual.
+
+Con Seleccionar, arrastrar la línea mueve el conjunto; los círculos editan vértices. El panel de detalles permite asignar un nombre opcional y alternar abierto/cerrado. Los contornos se guardan por planta, admiten Deshacer y no siguen automáticamente paredes ni techos de otras plantas. Máximo 200 proyecciones por planta y 200 vértices por contorno, separados al menos 10 cm.
+
+Mostrar/Ocultar proyecciones controla su visibilidad y su inclusión en PNG/SVG/impresión. No tienen relleno, no agregan superficies al resumen y no son paredes. El formato mantiene un campo opcional; editores anteriores pueden descartarlo al guardar. Validación visual pendiente.

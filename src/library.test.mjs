@@ -94,3 +94,15 @@ test('reference survives project validation and backup, rejects external or over
  assert.throws(()=>validatePlan({...p,reference:{...p.reference,width:0}}));
  assert.equal(validatePlan(emptyPlan()).reference,undefined);
 });
+test('open and closed projections survive project backups and affect bounds',async()=>{
+ const {validatePlan,planBounds}=await import(modelUrl);const p=emptyPlan();
+ p.projections=[{id:'roof',name:'Techo PB',closed:false,points:[{x:20,y:20},{x:25,y:20}]}];
+ assert.deepEqual(validatePlan(p).projections,p.projections);assert.ok(planBounds(p).x>10);
+ p.projections[0].points.push({x:25,y:24});p.projections[0].closed=true;
+ const item={...record(),building:buildingFromPlan(p)};assert.deepEqual(lib.parseLibrary(JSON.parse(lib.encodeLibrary([item])))[0].building.floors[0].plan.projections,p.projections);
+});
+test('projections reject invalid vertices, duplicate IDs and underspecified closed contours',async()=>{
+ const {validatePlan}=await import(modelUrl);const p=emptyPlan();const r={id:'roof',name:'',closed:false,points:[{x:0,y:0},{x:1,y:0}]};
+ for(const projections of [[{...r,closed:true}],[r,r],[{...r,points:[{x:0,y:0},{x:NaN,y:2}]}],[{...r,points:[{x:0,y:0},{x:0,y:0}]}]])assert.throws(()=>validatePlan({...p,projections}));
+ assert.equal(validatePlan(p).projections,undefined);
+});

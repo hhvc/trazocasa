@@ -1,4 +1,5 @@
 export type Point = { x: number; y: number };
+export type Projection = {id:string;name:string;points:Point[];closed:boolean};
 export type Surface = { id: string; name: string; points: Point[] };
 export type Dimension = { id: string; a: Point; b: Point; offset: number };
 export type Wall = { id: string; a: Point; b: Point; thickness?: number };
@@ -40,7 +41,7 @@ export const furnitureCatalog: { kind: FurnitureKind; name: string; width: numbe
   { kind: 'toilet', name: 'Inodoro', width: .4, depth: .7 },
 ];
 export type ReferenceImage = {data:string;name:string;x:number;y:number;width:number;height:number;opacity:number;visible:boolean};
-export type Plan = { reference?:ReferenceImage; format: 'trazocasa'; version: 6; surfaces: Surface[]; dimensions: Dimension[]; name: string; walls: Wall[]; openings: Opening[]; labels: Label[]; furniture: Furniture[] };
+export type Plan = { projections?:Projection[]; reference?:ReferenceImage; format: 'trazocasa'; version: 6; surfaces: Surface[]; dimensions: Dimension[]; name: string; walls: Wall[]; openings: Opening[]; labels: Label[]; furniture: Furniture[] };
 export const uid = () => crypto.randomUUID();
 export const distance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y);
 export const snap = (n: number) => Math.round(n * 10) / 10;
@@ -67,8 +68,11 @@ export function validatePlan(value: unknown): Plan {
   const finite = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= 1000;
   const point = (v: Point) => v && finite(v.x) && finite(v.y);
   if (p.format !== 'trazocasa' || ![1, 2, 3, 4, 5, 6].includes(p.version) || typeof p.name !== 'string' || p.name.length > 100 || !Array.isArray(p.walls) || !Array.isArray(p.openings) || !Array.isArray(p.labels) || p.walls.length > 2000 || p.openings.length > 2000 || p.labels.length > 500 || !Array.isArray(furniture) || furniture.length > 500 || !Array.isArray(dimensions) || dimensions.length > 500 || !Array.isArray(surfaces) || surfaces.length > 200) throw new Error('Formato incompatible. Elegí un archivo .trazocasa de versión 1, 2, 3, 4, 5 o 6.');
+  const projections=p.projections??[];
+  if(!Array.isArray(projections)||projections.length>200)throw new Error('Las proyecciones no son válidas.');
+  for(const r of projections){if(!r||typeof r.name!=='string'||r.name.length>80||typeof r.closed!=='boolean'||!Array.isArray(r.points)||r.points.length<(r.closed?3:2)||r.points.length>200||!r.points.every(point)||r.points.some((v,i)=>i>0&&distance(v,r.points[i-1])<.1-1e-9)||(r.closed&&distance(r.points[0],r.points[r.points.length-1])<.1-1e-9))throw new Error('Revisá los vértices de la proyección (mínimo 10 cm entre puntos).');}
   const ids = new Set<string>();
-  for (const o of [...p.walls, ...p.openings, ...p.labels, ...furniture, ...dimensions, ...surfaces]) {
+  for (const o of [...p.walls, ...p.openings, ...p.labels, ...furniture, ...dimensions, ...surfaces, ...projections]) {
     if (!o || typeof o.id !== 'string' || !o.id || ids.has(o.id)) throw new Error('El proyecto contiene identificadores inválidos.');
     ids.add(o.id);
   }
@@ -94,7 +98,7 @@ export function validatePlan(value: unknown): Plan {
     if (f.kind === 'roundCoffeeTable' && f.width !== f.depth) throw new Error('La mesa redonda debe tener un único diámetro.');
     if (!point(f) || !furnitureCatalog.some(item => item.kind === f.kind) || !finite(f.width) || !finite(f.depth) || f.width < .2 || f.width > 10 || f.depth < .2 || f.depth > 10 || !finite(f.rotation) || f.rotation < 0 || f.rotation >= 360) throw new Error('El proyecto contiene muebles inválidos.');
   }
-  return { ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y}))})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
+  return { ...(p.projections?{projections:projections.map(r=>({...r,points:r.points.map(p=>({...p}))}))}:{}), ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y}))})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
 }
 export function sample(): Plan {
   const wall = (id: string, x: number, y: number, x2: number, y2: number): Wall => ({ id, a: { x, y }, b: { x: x2, y: y2 } });
@@ -118,6 +122,7 @@ export function furnitureCorners(f: Furniture): Point[] {
 /** Shared framing for the editor and exports, including objects outside walls. */
 export function planBounds(p: Plan, padding = .7) {
   const points = p.walls.flatMap(w => { const r = wallThickness(w) / 2; return [w.a, w.b].flatMap(p => [{ x: p.x - r, y: p.y - r }, { x: p.x + r, y: p.y + r }]); });
+  p.projections?.forEach(r=>{points.push(...r.points);if(r.name){const a=r.points[0],half=Math.max(.8,r.name.length*.085);points.push({x:a.x-half,y:a.y-.5},{x:a.x+half,y:a.y+.2});}});
   p.labels.forEach(l => { const half = Math.max(.8, l.text.length * .085); points.push({ x: l.x - half, y: l.y - .3 }, { x: l.x + half, y: l.y + .3 }); });
   p.surfaces.forEach(s => { points.push(...s.points); const c=surfaceLabel(s.points), half=Math.max(.8,s.name.length*.085); points.push({x:c.x-half,y:c.y-.4},{x:c.x+half,y:c.y+.4}); });
   p.dimensions.forEach(d => { const g=dimensionGeometry(d); points.push(d.a,d.b); for(const p of [g.a,g.b,g.label]) points.push({x:p.x-1,y:p.y-1},{x:p.x+1,y:p.y+1}); });
