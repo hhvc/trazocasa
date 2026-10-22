@@ -114,3 +114,8 @@
 .reference-visibility { pointer-events:auto; min-height:44px; padding:8px 12px; border:1px solid #cbd5c9; background:#fffefa; box-shadow:0 2px 6px #0001; font-size:12px; }
 .reference-visibility[aria-pressed="true"] { background:#e6ecdf; color:#295246; }
 @media(max-width:1024px){.canvas-visibility { top:64px; left:8px; right:8px; }}
+.projection-finish { position:absolute; bottom:80px; left:50%; transform:translateX(-50%); z-index:3; width:max-content; max-width:calc(100% - 16px); background:#fffefa; border:1px solid #b7c4af; border-radius:10px; padding:10px; box-shadow:0 3px 14px #0002; }
+.projection-finish strong,.projection-finish small { display:block; margin:4px; }
+.projection-finish>div { display:flex; flex-wrap:wrap; gap:4px; }
+.projection-finish button { min-height:44px; padding:8px; background:#e6ecdf; }
+@media(max-width:1024px){.projection-finish { bottom:66px; }.projection-finish small { display:none; }.mobile-panel-tools .projection-finish,.mobile-panel-details .projection-finish { display:none; }}

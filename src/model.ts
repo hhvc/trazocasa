@@ -325,7 +325,8 @@ export function addSurface(plan: Plan, points: Point[], name='Ambiente'): Plan {
 }
 
 export type Floor = { id: string; name: string; plan: Plan };
-export type Building = { format: 'trazocasa'; version: 7; name: string; activeFloorId: string; floors: Floor[] };
+export type DrawingView = { id: string; name: string; plan: Plan };
+export type Building = { views?: DrawingView[]; format: 'trazocasa'; version: 7; name: string; activeFloorId: string; floors: Floor[] };
 export function buildingFromPlan(plan: Plan): Building {
   const id=uid();
   return {format:'trazocasa',version:7,name:plan.name,activeFloorId:id,floors:[{id,name:'Planta baja',plan:validatePlan(plan)}]};
@@ -343,7 +344,18 @@ export function validateBuilding(value: unknown): Building {
     return {id:f.id,name:f.name,plan:validatePlan(f.plan)};
   });
   if(!ids.has(b.activeFloorId))throw new Error('No se encontró la planta activa.');
-  return {format:'trazocasa',version:7,name:b.name,activeFloorId:b.activeFloorId,floors};
+  let views: DrawingView[] | undefined;
+  if(b.views!==undefined){
+    if(!Array.isArray(b.views)||b.views.length>30)throw new Error('El proyecto admite hasta 30 vistas 2D.');
+    views=b.views.map(v=>{
+      if(!v||typeof v.id!=='string'||!v.id||ids.has(v.id)||typeof v.name!=='string'||!v.name.trim()||v.name.length>60)throw new Error('La lista de vistas no es válida.');
+      ids.add(v.id);
+      const plan=validatePlan(v.plan);
+      if(plan.walls.length||plan.openings.length||plan.furniture.length||plan.surfaces.length)throw new Error('Las vistas admiten trazos, cotas y textos.');
+      return {id:v.id,name:v.name,plan};
+    });
+  }
+  return {format:'trazocasa',version:7,name:b.name,activeFloorId:b.activeFloorId,floors,...(views===undefined?{}:{views})};
 }
 export function activeFloorPlan(b: Building): Plan {
   const floor=b.floors.find(f=>f.id===b.activeFloorId);

@@ -487,3 +487,20 @@ test('preview and inserted preset use identical geometry and fresh IDs',()=>{
  const geometry=items=>items.map(({id,groupId,...item})=>item);
  assert.deepEqual(geometry(preview),geometry(actual.plan.furniture));assert.equal(new Set(actual.ids).size,3);
 });
+
+test('independent views survive save and reopen without changing floors', () => {
+ const b=buildingFromPlan(sample());
+ const plan={...emptyPlan(),projections:[{id:'outline',name:'',closed:true,points:[{x:0,y:0},{x:4,y:0},{x:4,y:-3},{x:0,y:-3}]}],labels:[{id:'text',text:'Frente',x:0,y:-4}]};
+ const next={...b,views:[{id:'front',name:'Frente',plan}]};
+ const reopened=validateBuilding(JSON.parse(JSON.stringify(next)));
+ assert.deepEqual(reopened,next);
+ assert.deepEqual(reopened.floors,b.floors);
+ assert.deepEqual(replaceFloorPlan(reopened,emptyPlan()).views,reopened.views);
+ assert.deepEqual(addFloor(reopened,'Alta','blank').views,reopened.views);
+});
+test('views reject invalid names, duplicate ids, malformed geometry and excessive count', () => {
+ const b=buildingFromPlan(sample()),v={id:'front',name:'Frente',plan:emptyPlan()};
+ for(const views of [null,[{...v,name:''}],[{...v,id:b.floors[0].id}],[v,v],Array.from({length:31},(_,i)=>({...v,id:String(i)})),[{...v,plan:sample()}],[{...v,plan:{...emptyPlan(),projections:[{id:'bad',name:'',closed:false,points:[{x:NaN,y:0},{x:1,y:0}]}]}}]])assert.throws(()=>validateBuilding({...b,views}));
+ assert.equal(validateBuilding(b).views,undefined);
+ assert.deepEqual(validateBuilding({...b,views:[]}).views,[]);
+});

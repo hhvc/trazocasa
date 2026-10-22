@@ -262,3 +262,16 @@ Proyección (P) permite marcar puntos y Terminar abierta (mínimo dos) o Cerrar 
 Con Seleccionar, arrastrar la línea mueve el conjunto; los círculos editan vértices. El panel de detalles permite asignar un nombre opcional y alternar abierto/cerrado. Los contornos se guardan por planta, admiten Deshacer y no siguen automáticamente paredes ni techos de otras plantas. Máximo 200 proyecciones por planta y 200 vértices por contorno, separados al menos 10 cm.
 
 Mostrar/Ocultar proyecciones controla su visibilidad y su inclusión en PNG/SVG/impresión. No tienen relleno, no agregan superficies al resumen y no son paredes. El formato mantiene un campo opcional; editores anteriores pueden descartarlo al guardar. Validación visual pendiente.
+
+### Finalizar proyecciones sobre el lienzo
+
+Mientras haya puntos pendientes aparece una barra con Guardar abierta, Guardar cerrada, Quitar punto y Descartar. Cambiar de herramienta conserva el borrador durante esa sesión; Seguir dibujando vuelve al trazado. Enter guarda abierta, Shift + Enter cerrada, y tocar cerca del primer punto cierra un contorno de al menos tres vértices. Se ignoran clics consecutivos repetidos. Escape descarta explícitamente. Los borradores no se incluyen en archivos ni sobreviven a una recarga o cambio de planta/proyecto; la barra los identifica como «sin guardar».
+
+### Vistas 2D independientes
+El botón **Vistas 2D**, junto al selector de plantas, abre dibujos manuales de frente, contrafrente, laterales o cortes. Hasta 30 vistas por proyecto, con nombre propio. Se guardan en el archivo editable, autoguardado, biblioteca y versiones locales.
+- Línea y rectángulo: dos toques; cota: inicio, final y separación. Texto: escribir y tocar para ubicarlo. Ajuste de 10 cm. Las alturas se dibujan hacia arriba (coordenadas Y negativas sobre el nivel 0).
+- Seleccionar permite modificar coordenadas de vértices y textos, o eliminar elementos. Mover lienzo, acercar, alejar y encuadrar permiten recorrer el dibujo.
+- Imagen de referencia calibrable por vista, SVG, PNG e impresión a escala. La referencia y la guía del nivel 0 no se exportan.
+- Deshacer/rehacer comparte el historial del proyecto. Los trazos incompletos deben terminarse o cancelarse antes de cambiar de vista o exportar.
+- Primera versión manual: sin generación de fachadas desde plantas, tramas, marcadores vinculados de corte ni alturas constructivas automáticas. Las cotas se pueden eliminar y volver a dibujar.
+- Archivos antiguos sin vistas siguen abriendo. Versiones antiguas de TrazoCasa no conservan el campo opcional de vistas: usar la versión actual para editarlas.
