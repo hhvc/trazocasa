@@ -275,3 +275,8 @@ El botón **Vistas 2D**, junto al selector de plantas, abre dibujos manuales de 
 - Deshacer/rehacer comparte el historial del proyecto. Los trazos incompletos deben terminarse o cancelarse antes de cambiar de vista o exportar.
 - Primera versión manual: sin generación de fachadas desde plantas, tramas, marcadores vinculados de corte ni alturas constructivas automáticas. Las cotas se pueden eliminar y volver a dibujar.
 - Archivos antiguos sin vistas siguen abriendo. Versiones antiguas de TrazoCasa no conservan el campo opcional de vistas: usar la versión actual para editarlas.
+
+### Frente proyectado desde la planta
+Dentro de Vistas 2D, «Proyectar desde la planta · Frente» permite elegir una planta bloqueada en el mismo lienzo. Las nuevas vistas llamadas Frente la activan por defecto; las vistas anteriores conservan su dibujo y pueden vincularse desde el selector.
+La planta se ubica debajo del nivel 0 conservando sus coordenadas X. Se muestran auxiliares verticales desde extremos de paredes y bordes de aberturas, más niveles horizontales configurables en metros (iniciales 0 / 0,90 / 2,10 / 2,80). Los trazos ajustan a estas guías dentro de 8 px y como máximo 25 cm; Alt omite ese ajuste. El nivel 0 permanece como base aunque se quite de la lista.
+La planta de referencia se actualiza al editarla; los trazos de la vista no se mueven automáticamente. Ocultar planta y guías también desactiva su ajuste. Exportar e imprimir incluye solamente el dibujo de la vista. Al eliminar la planta vinculada se desvincula la referencia, conservando la vista. Esta etapa usa orientación frontal (mirando hacia arriba de la planta); todavía no genera fachadas, cortes ni ocultamientos automáticamente.

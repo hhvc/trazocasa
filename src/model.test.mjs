@@ -504,3 +504,23 @@ test('views reject invalid names, duplicate ids, malformed geometry and excessiv
  assert.equal(validateBuilding(b).views,undefined);
  assert.deepEqual(validateBuilding({...b,views:[]}).views,[]);
 });
+
+test('front guides preserve exact opening edges and place the reference below zero', async () => {
+ const {frontReference}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+ const p={...emptyPlan(),walls:[{id:'w',a:{x:2,y:8},b:{x:8,y:8}}],openings:[{id:'o',wallId:'w',kind:'window',t:.5,width:1.3}]};
+ const r=frontReference(p);
+ assert.equal(r.shift,-5);
+ assert.deepEqual(r.axes,[2,4.35,5.65,8]);
+ assert.equal(r.anchors[0].y+r.shift,3);
+ assert.deepEqual(frontReference(emptyPlan()).axes,[]);
+});
+test('view guide settings roundtrip and deleting the reference floor preserves drawing', () => {
+ const b=addFloor(buildingFromPlan(sample()),'Alta','blank');
+ const v={id:'front',name:'Frente',plan:emptyPlan(),guides:{floorId:b.floors[0].id,visible:true,levels:[0,.9,2.1,2.8]}};
+ const next=validateBuilding({...b,views:[v]});
+ assert.deepEqual(validateBuilding(JSON.parse(JSON.stringify(next))),next);
+ const removed=removeFloor(next,b.floors[0].id);
+ assert.equal(removed.views[0].guides,undefined);
+ assert.deepEqual(removed.views[0].plan,v.plan);
+ for(const guides of [{...v.guides,floorId:'missing'},{...v.guides,levels:[Infinity]},{...v.guides,levels:[101]},{...v.guides,visible:'true'}])assert.throws(()=>validateBuilding({...b,views:[{...v,guides}]}));
+});

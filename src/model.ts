@@ -325,7 +325,8 @@ export function addSurface(plan: Plan, points: Point[], name='Ambiente'): Plan {
 }
 
 export type Floor = { id: string; name: string; plan: Plan };
-export type DrawingView = { id: string; name: string; plan: Plan };
+export type ViewGuides = { floorId: string; visible: boolean; levels: number[] };
+export type DrawingView = { guides?: ViewGuides; id: string; name: string; plan: Plan };
 export type Building = { views?: DrawingView[]; format: 'trazocasa'; version: 7; name: string; activeFloorId: string; floors: Floor[] };
 export function buildingFromPlan(plan: Plan): Building {
   const id=uid();
@@ -352,7 +353,13 @@ export function validateBuilding(value: unknown): Building {
       ids.add(v.id);
       const plan=validatePlan(v.plan);
       if(plan.walls.length||plan.openings.length||plan.furniture.length||plan.surfaces.length)throw new Error('Las vistas admiten trazos, cotas y textos.');
-      return {id:v.id,name:v.name,plan};
+      let guides: ViewGuides | undefined;
+      if(v.guides!==undefined){
+        const g=v.guides;
+        if(!g||!floors.some(f=>f.id===g.floorId)||typeof g.visible!=='boolean'||!Array.isArray(g.levels)||g.levels.length>30||g.levels.some(h=>!Number.isFinite(h)||h< -100||h>100))throw new Error('Revisá la planta de referencia y los niveles de la vista.');
+        guides={floorId:g.floorId,visible:g.visible,levels:[...new Set(g.levels)].sort((a,b)=>a-b)};
+      }
+      return {id:v.id,name:v.name,plan,...(guides?{guides}:{})};
     });
   }
   return {format:'trazocasa',version:7,name:b.name,activeFloorId:b.activeFloorId,floors,...(views===undefined?{}:{views})};
@@ -381,5 +388,19 @@ export function removeFloor(b: Building, id: string): Building {
   const index=b.floors.findIndex(f=>f.id===id);
   if(index<0)throw new Error('No se encontró la planta.');
   const floors=b.floors.filter(f=>f.id!==id);
-  return validateBuilding({...b,floors,activeFloorId:b.activeFloorId===id?floors[Math.max(0,index-1)].id:b.activeFloorId});
+  return validateBuilding({...b,views:b.views?.map(v=>v.guides?.floorId===id?{...v,guides:undefined}:v),floors,activeFloorId:b.activeFloorId===id?floors[Math.max(0,index-1)].id:b.activeFloorId});
+}
+
+/** Front drafting reference: same X coordinates, plan placed below the elevation. */
+export function frontReference(plan: Plan) {
+  const walls=plan.walls;
+  const minY=walls.length?Math.min(...walls.flatMap(w=>[w.a.y,w.b.y])):0;
+  const shift=3-minY;
+  const openings=plan.openings.flatMap(o=>{
+    const w=walls.find(w=>w.id===o.wallId);if(!w)return [];
+    const length=distance(w.a,w.b);
+    return [{id:o.id,kind:o.kind,a:{x:w.a.x+(w.b.x-w.a.x)*(o.t-o.width/2/length),y:w.a.y+(w.b.y-w.a.y)*(o.t-o.width/2/length)},b:{x:w.a.x+(w.b.x-w.a.x)*(o.t+o.width/2/length),y:w.a.y+(w.b.y-w.a.y)*(o.t+o.width/2/length)}}];
+  });
+  const anchors=[...walls.flatMap(w=>[w.a,w.b]),...openings.flatMap(o=>[o.a,o.b])];
+  return {walls,openings,shift,anchors,axes:[...new Set(anchors.map(p=>p.x))].sort((a,b)=>a-b)};
 }
