@@ -1,2 +1,19 @@
 .views-backdrop{position:fixed;inset:0;z-index:100;background:#faf9f5;overflow:auto}.views-panel{min-height:100%;padding:16px;color:#354b40}.views-content{max-width:1500px;margin:auto}.views-panel header,.views-bar,.views-panel footer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.views-panel header strong{font-size:22px}.views-panel header span{flex:1;font-size:12px}.views-panel button{min-height:44px;padding:8px 12px;border:1px solid #cccabb;border-radius:8px;background:white;color:#354b40;cursor:pointer}.views-panel button[aria-pressed=true]{background:#354b40;color:white}.views-panel button:disabled{opacity:.45;cursor:default}.views-panel input,.views-panel select{padding:9px;border:1px solid #cccabb;border-radius:6px;font-size:16px;max-width:100%;min-width:0}.views-bar label{display:flex;flex-direction:column;font-size:12px;gap:3px}.views-bar form{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.views-help{font-size:13px;line-height:1.5;margin:10px 0}.view-drawing{display:block;width:100%;height:55dvh;min-height:280px;background:#faf9f5;border:1px solid #cccabb;touch-action:none}.views-properties{display:flex;gap:8px;flex-wrap:wrap;padding:12px 0}.views-properties>div{display:flex;align-items:center;gap:5px}.views-properties input{width:85px}.views-properties strong,.views-properties small{width:100%}.views-panel footer{margin-top:12px}.views-error{color:#9d342d;padding:12px;border:1px solid currentColor}.views-panel .modal-backdrop{z-index:110}@media(max-width:600px){.views-panel{padding:8px}.views-bar{gap:6px}.views-bar input{max-width:180px}.views-panel header span{flex-basis:100%;order:3}}
 .front-guide-controls{border:1px solid #cbd8cb;border-radius:8px;background:#f0f4ee;padding:10px;margin:10px 0}.front-guide-controls summary{font-weight:600;cursor:pointer;margin-bottom:8px}.front-guide-controls small{display:block;line-height:1.5}.front-guide-controls .views-bar{margin-bottom:6px}.view-drawing{height:65dvh;min-height:380px}
+/* Compact drawing workspace: secondary actions are revealed by Menú de vista. */
+.views-panel{height:100dvh;min-height:0;padding:8px 12px;overflow:auto}
+.views-content{height:100%;max-width:none;display:flex;flex-direction:column;gap:5px}
+.views-panel header,.views-bar,.views-panel footer{margin:0;gap:6px;flex-shrink:0}
+.views-panel header strong{font-size:16px}.views-panel header span{font-size:11px}
+.views-panel button{min-height:30px;padding:4px 9px;border-radius:5px;font-size:12px}
+.views-panel input,.views-panel select{padding:5px 7px;font-size:13px}
+.views-switch label{flex-direction:row;align-items:center}.views-switch select{max-width:220px}
+.views-content:not(.settings-open) .view-settings,.views-content:not(.settings-open) .view-create,.views-content:not(.settings-open) .front-guide-controls{display:none}
+.views-content.settings-open .view-settings,.views-content.settings-open .front-guide-controls{flex-shrink:0}
+.view-navigation,.view-tools{flex-wrap:nowrap;overflow-x:auto;min-height:32px}.view-navigation button,.view-tools button{white-space:nowrap;flex-shrink:0}
+.views-help{margin:0;font-size:11px;line-height:1.4;flex-shrink:0}
+.views-content>.view-drawing{height:auto;flex:1 0 240px;min-height:240px;width:100%}
+.views-properties{max-height:160px;overflow:auto;flex-shrink:0;padding:5px 0;font-size:12px}
+.front-guide-controls{margin:0;padding:6px 8px;font-size:12px}.front-guide-controls summary{margin:0}.front-guide-controls[open] summary{margin-bottom:8px}
+@media(pointer:coarse){.views-panel button,.views-panel select{min-height:44px}.views-panel input,.views-panel select{font-size:16px}.view-navigation,.view-tools{min-height:44px}}
+@media(max-width:600px){.views-panel{padding:6px}.views-panel header{gap:4px}.views-panel header span{flex-basis:auto;order:0}.views-panel header strong{font-size:14px}.views-panel header span{display:none}.views-panel header button:last-child{margin-left:auto}}
