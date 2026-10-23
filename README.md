@@ -1,6 +1,6 @@
 # TrazoCasa
 
-Prototipo local de un editor 2D de viviendas con estética de bosquejo. Vite + React + TypeScript, SVG y coordenadas en metros.
+Editor local de viviendas con planta 2D de estilo bosquejo y visualización 3D de muros y aberturas. Vite + React + TypeScript, SVG, Three.js y coordenadas en metros.
 
 ## Ejecutar
 
@@ -267,25 +267,21 @@ Mostrar/Ocultar proyecciones controla su visibilidad y su inclusión en PNG/SVG/
 
 Mientras haya puntos pendientes aparece una barra con Guardar abierta, Guardar cerrada, Quitar punto y Descartar. Cambiar de herramienta conserva el borrador durante esa sesión; Seguir dibujando vuelve al trazado. Enter guarda abierta, Shift + Enter cerrada, y tocar cerca del primer punto cierra un contorno de al menos tres vértices. Se ignoran clics consecutivos repetidos. Escape descarta explícitamente. Los borradores no se incluyen en archivos ni sobreviven a una recarga o cambio de planta/proyecto; la barra los identifica como «sin guardar».
 
-### Vistas 2D independientes
-El botón **Vistas 2D**, junto al selector de plantas, abre dibujos manuales de frente, contrafrente, laterales o cortes. Hasta 30 vistas por proyecto, con nombre propio. Se guardan en el archivo editable, autoguardado, biblioteca y versiones locales.
-- Línea y rectángulo: dos toques; cota: inicio, final y separación. Texto: escribir y tocar para ubicarlo. Ajuste de 10 cm. Las alturas se dibujan hacia arriba (coordenadas Y negativas sobre el nivel 0).
-- Seleccionar permite modificar coordenadas de vértices y textos, o eliminar elementos. Mover lienzo, acercar, alejar y encuadrar permiten recorrer el dibujo.
-- Imagen de referencia calibrable por vista, SVG, PNG e impresión a escala. La referencia y la guía del nivel 0 no se exportan.
-- Deshacer/rehacer comparte el historial del proyecto. Los trazos incompletos deben terminarse o cancelarse antes de cambiar de vista o exportar.
-- Primera versión manual: sin generación de fachadas desde plantas, tramas, marcadores vinculados de corte ni alturas constructivas automáticas. Las cotas permiten editar extremos, separación y eliminarse.
-- Archivos antiguos sin vistas siguen abriendo. Versiones antiguas de TrazoCasa no conservan el campo opcional de vistas: usar la versión actual para editarlas.
+## Modelo 3D y fachadas desde la planta
 
-### Frente proyectado desde la planta
-Dentro de Vistas 2D, «Proyectar desde la planta · Frente» permite elegir una planta bloqueada en el mismo lienzo. Las nuevas vistas llamadas Frente la activan por defecto; las vistas anteriores conservan su dibujo y pueden vincularse desde el selector.
-La planta se ubica debajo del nivel 0 conservando sus coordenadas X. Se muestran auxiliares verticales desde extremos de paredes y bordes de aberturas, más niveles horizontales configurables en metros (iniciales 0 / 0,90 / 2,10 / 2,80). Los trazos ajustan a estas guías dentro de 8 px y como máximo 25 cm; Alt omite ese ajuste. El nivel 0 permanece como base aunque se quite de la lista.
-La planta de referencia se actualiza al editarla; los trazos de la vista no se mueven automáticamente. Ocultar planta y guías también desactiva su ajuste. Exportar e imprimir incluye solamente el dibujo de la vista. Al eliminar la planta vinculada se desvincula la referencia, conservando la vista. Esta etapa usa orientación frontal (mirando hacia arriba de la planta); todavía no genera fachadas, cortes ni ocultamientos automáticamente.
+**Ver 3D**, junto al selector de plantas, abre el modelo de la planta activa. El lienzo ocupa la pantalla; **Alturas y opciones** despliega un inspector superpuesto. **Editar planta** vuelve al dibujo 2D para cambiar posiciones, largos, espesores y aberturas.
 
+- En **3D**, arrastrar gira el modelo; botón derecho desplaza. Rueda o dos dedos acercan/alejan. Los botones de zoom y **Encuadrar** también están disponibles.
+- **Frente, Contrafrente, Lateral izquierdo y Lateral derecho** muestran proyecciones ortográficas, sin perspectiva. Frente mira desde el borde inferior del plano. En estas vistas, arrastrar desplaza sin girar.
+- Seleccionar un muro o abertura en el modelo, o elegirlo en el inspector, permite editar sus alturas en metros, con coma o punto decimal. Los mismos controles están disponibles en las propiedades del editor 2D.
+- Los muros sin altura propia usan la altura general de su planta: inicialmente **2,80 m**. Cada muro puede sobrescribirla y luego volver a **Usar altura general**. Límites de altura: 0,50 a 20 m.
+- Puertas: altura inicial **2,10 m**, siempre desde el piso. Ventanas: altura inicial **1,20 m** y antepecho **0,90 m**. Los huecos se recortan del muro. Se rechazan cambios que dejen una abertura por encima de su pared; ajustar primero la abertura si se necesita bajar el muro.
+- Los cambios de altura participan de deshacer/rehacer, autoguardado, biblioteca, versiones y archivos `.trazocasa`. **Descargar proyecto editable** guarda el edificio completo; **Descargar vista PNG** exporta el encuadre actual, sin controles ni resaltado de selección.
 
-### Edición de vistas con controles de planta
-- Seleccionar y arrastrar mueve líneas, contornos y textos. Los círculos A/B (o vértices numerados) editan los extremos. Cada arrastre confirmado es un solo paso de Deshacer; Escape o la cancelación del puntero descarta la vista previa.
-- Las líneas de dos puntos tienen largo exacto (0,10 a 100 m, admite coma decimal) conservando A y su dirección. También se pueden dividir desde A, dejando al menos 10 cm por tramo.
-- Los vértices coincidentes de los trazos acompañan las ediciones; los puntos nuevos se ajustan a vértices, guías o cuadrícula. No se crean uniones en T automáticamente.
-- Cotas: arrastrar A/B modifica sus puntos; arrastrar la línea modifica su separación. Se reutiliza el mismo formulario de separación que en las plantas. Las cotas siguen siendo independientes de los trazos.
-- Atajos: V seleccionar, W o L línea, R rectángulo, C cota, T texto, H mover lienzo, Supr eliminar, Ctrl/Cmd+Z deshacer y Ctrl/Cmd+Shift+Z rehacer. Escape cancela y vuelve a Seleccionar.
-- El inspector aparece sobre el lienzo sin cambiar su tamaño; las coordenadas y la división quedan plegadas. Los controles de selección no se exportan.
+Primera etapa: se visualiza **una planta por vez**, con sus muros y huecos. Todavía no se apilan niveles ni se generan losas, cubiertas, mobiliario 3D o cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
+
+La visualización se procesa íntegramente en el navegador. Three.js se descarga como módulo separado al abrir el visor; requiere WebGL 2. Si no está disponible, se informa el problema y se puede continuar en 2D. El motor dibuja cuando cambia la escena o la cámara, sin una animación continua.
+
+Se conserva el formato v7 del edificio y v6 de cada planta, agregando campos opcionales para alturas y antepechos. Los archivos anteriores abren con las alturas iniciales indicadas, sin cambiar sus coordenadas. Versiones anteriores del editor pueden descartar estos campos al guardar. Las antiguas vistas manuales ya no tienen acceso desde la interfaz; sus datos existentes se conservan al abrir y guardar proyectos, para evitar perder dibujos anteriores.
+
+Las pruebas automatizadas cubren compatibilidad, persistencia, alturas inválidas, conservación de propiedades al editar/copiar muros y geometría de huecos en muros rectos o diagonales.
