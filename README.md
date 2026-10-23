@@ -273,10 +273,19 @@ El botón **Vistas 2D**, junto al selector de plantas, abre dibujos manuales de 
 - Seleccionar permite modificar coordenadas de vértices y textos, o eliminar elementos. Mover lienzo, acercar, alejar y encuadrar permiten recorrer el dibujo.
 - Imagen de referencia calibrable por vista, SVG, PNG e impresión a escala. La referencia y la guía del nivel 0 no se exportan.
 - Deshacer/rehacer comparte el historial del proyecto. Los trazos incompletos deben terminarse o cancelarse antes de cambiar de vista o exportar.
-- Primera versión manual: sin generación de fachadas desde plantas, tramas, marcadores vinculados de corte ni alturas constructivas automáticas. Las cotas se pueden eliminar y volver a dibujar.
+- Primera versión manual: sin generación de fachadas desde plantas, tramas, marcadores vinculados de corte ni alturas constructivas automáticas. Las cotas permiten editar extremos, separación y eliminarse.
 - Archivos antiguos sin vistas siguen abriendo. Versiones antiguas de TrazoCasa no conservan el campo opcional de vistas: usar la versión actual para editarlas.
 
 ### Frente proyectado desde la planta
 Dentro de Vistas 2D, «Proyectar desde la planta · Frente» permite elegir una planta bloqueada en el mismo lienzo. Las nuevas vistas llamadas Frente la activan por defecto; las vistas anteriores conservan su dibujo y pueden vincularse desde el selector.
 La planta se ubica debajo del nivel 0 conservando sus coordenadas X. Se muestran auxiliares verticales desde extremos de paredes y bordes de aberturas, más niveles horizontales configurables en metros (iniciales 0 / 0,90 / 2,10 / 2,80). Los trazos ajustan a estas guías dentro de 8 px y como máximo 25 cm; Alt omite ese ajuste. El nivel 0 permanece como base aunque se quite de la lista.
 La planta de referencia se actualiza al editarla; los trazos de la vista no se mueven automáticamente. Ocultar planta y guías también desactiva su ajuste. Exportar e imprimir incluye solamente el dibujo de la vista. Al eliminar la planta vinculada se desvincula la referencia, conservando la vista. Esta etapa usa orientación frontal (mirando hacia arriba de la planta); todavía no genera fachadas, cortes ni ocultamientos automáticamente.
+
+
+### Edición de vistas con controles de planta
+- Seleccionar y arrastrar mueve líneas, contornos y textos. Los círculos A/B (o vértices numerados) editan los extremos. Cada arrastre confirmado es un solo paso de Deshacer; Escape o la cancelación del puntero descarta la vista previa.
+- Las líneas de dos puntos tienen largo exacto (0,10 a 100 m, admite coma decimal) conservando A y su dirección. También se pueden dividir desde A, dejando al menos 10 cm por tramo.
+- Los vértices coincidentes de los trazos acompañan las ediciones; los puntos nuevos se ajustan a vértices, guías o cuadrícula. No se crean uniones en T automáticamente.
+- Cotas: arrastrar A/B modifica sus puntos; arrastrar la línea modifica su separación. Se reutiliza el mismo formulario de separación que en las plantas. Las cotas siguen siendo independientes de los trazos.
+- Atajos: V seleccionar, W o L línea, R rectángulo, C cota, T texto, H mover lienzo, Supr eliminar, Ctrl/Cmd+Z deshacer y Ctrl/Cmd+Shift+Z rehacer. Escape cancela y vuelve a Seleccionar.
+- El inspector aparece sobre el lienzo sin cambiar su tamaño; las coordenadas y la división quedan plegadas. Los controles de selección no se exportan.
