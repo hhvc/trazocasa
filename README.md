@@ -92,7 +92,7 @@ Son anotaciones independientes: no siguen automáticamente las paredes al modifi
 
 Elegí **Superficie (S)** y marcá los vértices en orden. Cerrá tocando el primer punto, con **Cerrar superficie** o Enter. **Quitar último punto** y Retroceso corrigen el trazado; Escape o Cancelar lo descartan sin modificar el plano. Se admiten de 3 a 100 vértices y hasta 200 superficies por proyecto.
 
-Se calcula el área de contornos simples, incluidos los cóncavos. Se rechazan lados menores a 10 cm, superficies menores a 0,01 m², cruces y contactos del contorno consigo mismo. No se admiten huecos interiores.
+Se calcula el área de contornos simples, incluidos los cóncavos. Se rechazan lados menores a 10 cm, superficies menores a 0,01 m², cruces y contactos del contorno consigo mismo. Los huecos interiores se dibujan desde los controles de losa y cubierta del contorno (ver la sección de huecos de escalera y patios). El área de superficie sigue midiendo el contorno completo.
 
 Seleccioná el nombre o el relleno para editarlo. El panel permite renombrar; arrastrar el contorno o el nombre mueve la superficie, y los círculos ajustan sus vértices recalculando los m². Los cambios inválidos se cancelan al soltar. El nombre y el área se incluyen en SVG y PNG, y el encuadre contempla las superficies exteriores.
 
@@ -297,10 +297,24 @@ El cálculo sigue el orden del selector, no el nombre de la planta. Cambiar altu
 
 Los niveles y las propiedades de losas/cubiertas se conservan en autoguardado, archivos, biblioteca, versiones y Deshacer/Rehacer. Duplicar una planta completa conserva sus contornos y propiedades pero calcula un nivel nuevo; copiar solo paredes no copia las losas.
 
-Pendientes: huecos interiores para escaleras, pendientes de techo, mobiliario 3D y cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
+### Huecos de escalera y patios
+
+1. Seleccionar el contorno de la superficie en 2D o en el inspector 3D.
+2. En **Huecos de escalera y patios**, elegir **Losa**, **Cubierta** o **Losa y cubierta** y pulsar **Dibujar hueco en planta**. Desde 3D se vuelve al editor 2D.
+3. Marcar al menos tres vértices dentro del contorno. **Cerrar hueco**, Enter o tocar el primer punto confirma. **Quitar punto** corrige el último vértice; Escape o **Cancelar hueco** descarta el dibujo sin guardar.
+4. Seleccionar el hueco por su borde o nombre. Arrastrar lo mueve; los círculos editan sus vértices. El panel permite cambiar nombre, destino, ancho X y largo Y con coma o punto decimal. Las medidas escalan la forma desde su esquina mínima X/Y.
+5. **Eliminar solo este hueco** conserva la superficie, su losa y su cubierta. Los cambios admiten Deshacer/Rehacer.
+
+Cada contorno admite hasta 20 huecos, de 3 a 100 vértices. Deben quedar enteramente dentro del contorno y no pueden tocarlo, cruzarse, superponerse ni contener otros huecos. Mover la superficie mueve también sus huecos; cambiar un vértice exterior no los desplaza y se rechaza si los deja fuera.
+
+Los huecos solo recortan los elementos activados del contorno y el destino elegido. No modifican muros ni generan escaleras automáticamente. Para una escalera entre pisos, dibujar el hueco en la losa del piso superior. Para un patio que atraviesa varias plantas, agregar el recorte a cada losa o cubierta correspondiente.
+
+En 2D se muestran con borde discontinuo y nombre; el relleno de la superficie descuenta los huecos destinados a la losa. El inspector muestra **Losa neta** y **Cubierta neta**, descontando sus huecos respectivos. Las etiquetas de superficie y el resumen general conservan el área del contorno completo. Los huecos se conservan en archivos locales, autoguardado y copias de plantas completas; el visor 3D y la exportación PNG respetan los recortes.
+
+Pendientes: pendientes de techo, mobiliario 3D y cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
 
 La visualización se procesa íntegramente en el navegador. Three.js se descarga como módulo separado al abrir el visor; requiere WebGL 2. Si no está disponible, se informa el problema y se puede continuar en 2D. El motor dibuja cuando cambia la escena o la cámara, sin una animación continua.
 
-Se conserva el formato v7 del edificio y v6 de cada planta, agregando campos opcionales para alturas, antepechos, niveles de piso, losas y cubiertas. Los archivos anteriores abren con las alturas iniciales indicadas, sin cambiar sus coordenadas. Versiones anteriores del editor pueden descartar estos campos al guardar. Las antiguas vistas manuales ya no tienen acceso desde la interfaz; sus datos existentes se conservan al abrir y guardar proyectos, para evitar perder dibujos anteriores.
+Se conserva el formato v7 del edificio y v6 de cada planta, agregando campos opcionales para alturas, antepechos, niveles de piso, losas, cubiertas y huecos interiores. Los archivos anteriores abren con las alturas iniciales indicadas, sin cambiar sus coordenadas. Versiones anteriores del editor pueden descartar estos campos al guardar. Las antiguas vistas manuales ya no tienen acceso desde la interfaz; sus datos existentes se conservan al abrir y guardar proyectos, para evitar perder dibujos anteriores.
 
-Las pruebas automatizadas cubren compatibilidad, persistencia, alturas inválidas, conservación de propiedades al editar/copiar muros y geometría de huecos en muros rectos o diagonales, niveles de varias plantas, selección independiente y extrusión de contornos cóncavos en ambos sentidos.
+Las pruebas automatizadas cubren compatibilidad, persistencia, alturas inválidas, conservación de propiedades al editar/copiar muros y geometría de huecos en muros rectos o diagonales, niveles de varias plantas, selección independiente y extrusión de contornos cóncavos en ambos sentidos, recortes interiores con distintas orientaciones, validación de huecos, edición de vértices, movimiento y áreas netas.

@@ -42,7 +42,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
    const floorGroup=new THREE.Group();floorGroup.position.y=floor.elevation;group.add(floorGroup);
    const selection=(elementId:string)=>({floorId:floor.id,elementId});
    for(const plate of floor.plates){
-    const geometry=plateGeometry(plate.points,plate.top-plate.bottom);
+    const geometry=plateGeometry(plate.points,plate.top-plate.bottom,plate.holes);
     const color=plate.kind==='roof'?'#a7b3a4':'#d6ccb6',material=new THREE.MeshStandardMaterial({color,roughness:1,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
     const mesh=new THREE.Mesh(geometry,material);mesh.position.y=plate.bottom;mesh.userData.selection=selection(plate.id);floorGroup.add(mesh);selectable.push(mesh);remember(modelSelectionKey(selection(plate.id)),material,color);
     const outline=new THREE.LineSegments(new THREE.EdgesGeometry(geometry),new THREE.LineBasicMaterial({color:'#637166'}));outline.position.y=plate.bottom;floorGroup.add(outline);

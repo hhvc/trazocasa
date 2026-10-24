@@ -1,3 +1,4 @@
+import {HoleControls} from './HoleControls';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {createModelScene,modelViews} from './ModelScene';
 import type {ModelView} from './ModelScene';
@@ -6,10 +7,10 @@ import type {ModelOptions,ModelSelection} from './model3d';
 import {GeneralHeightControls,WallHeightControls,OpeningHeightControls} from './HeightControls';
 import {LevelControls,SlabControls} from './LevelControls';
 import {distance,floorLevels,openingHeight,openingSill,surfaceArea,validatePlan,wallHeight,wallThickness} from './model';
-import type {Building,Plan} from './model';
+import type {Building,Plan,SurfaceHole} from './model';
 import './model3d.css';
-export type ModelPanelProps={building:Building;plan:Plan;onChange:(plan:Plan)=>void;onLevel:(elevation?:number)=>void;onSurface:()=>void;onFloor:(id:string)=>void;onClose:()=>void;onUndo:()=>void;onRedo:()=>void;canUndo:boolean;canRedo:boolean;onSave:()=>void;saved:boolean};
-export default function ModelPanel({building,plan,onChange,onLevel,onSurface,onFloor,onClose,onUndo,onRedo,canUndo,canRedo,onSave,saved}:ModelPanelProps){
+export type ModelPanelProps={building:Building;plan:Plan;onChange:(plan:Plan)=>void;onLevel:(elevation?:number)=>void;onSurface:()=>void;onHole:(surfaceId:string,target:SurfaceHole['target'])=>void;onFloor:(id:string)=>void;onClose:()=>void;onUndo:()=>void;onRedo:()=>void;canUndo:boolean;canRedo:boolean;onSave:()=>void;saved:boolean};
+export default function ModelPanel({building,plan,onChange,onLevel,onSurface,onHole,onFloor,onClose,onUndo,onRedo,canUndo,canRedo,onSave,saved}:ModelPanelProps){
  const host=useRef<HTMLDivElement>(null),api=useRef<ReturnType<typeof createModelScene>|undefined>(undefined);
  const [mode,setMode]=useState<ModelView>('3d'),[selection,setSelection]=useState<ModelSelection|null>(null),[panel,setPanel]=useState(false),[error,setError]=useState(''),[fatal,setFatal]=useState(''),[ready,setReady]=useState(false),[busy,setBusy]=useState(false);
  const [scope,setScope]=useState<ModelOptions['scope']>('all'),[slabs,setSlabs]=useState(true),[roofs,setRoofs]=useState(true);
@@ -56,12 +57,12 @@ export default function ModelPanel({building,plan,onChange,onLevel,onSurface,onF
  <p>{floor.name} · Nivel {level.toFixed(2)} m</p>
  <div className="model-visibility"><button aria-pressed={slabs} onClick={()=>setSlabs(v=>!v)}>{slabs?'Ocultar losas':'Mostrar losas'}</button><button aria-pressed={roofs} onClick={()=>setRoofs(v=>!v)}>{roofs?'Ocultar cubiertas':'Mostrar cubiertas'}</button></div>
  <label>Elemento de {floor.name}<select aria-label="Elemento del modelo" value={wall||opening||surface?selected:''} onChange={e=>select(e.target.value)}><option value="">Nivel y altura general</option>{plan.walls.map((w,i)=><option key={w.id} value={w.id}>Muro {i+1} · {wallHeight(plan,w).toFixed(2)} m</option>)}{plan.openings.map((o,i)=><option key={o.id} value={o.id}>{o.kind==='door'?'Puerta':'Ventana'} {i+1} · {openingHeight(o).toFixed(2)} m</option>)}{plan.surfaces.map(s=><option key={s.id} value={s.id}>Superficie · {s.name}</option>)}</select></label>
- {wall?<><p>{distance(wall.a,wall.b).toFixed(2)} m de largo · {(wallThickness(wall)*100).toFixed(0)} cm de espesor</p><WallHeightControls key={floor.id+wall.id+'-'+wallHeight(plan,wall)} plan={plan} wall={wall} onChange={height=>change({...plan,walls:plan.walls.map(w=>w.id===wall.id?{...w,height}:w)})}/></>:opening?<><p>{opening.width.toFixed(2)} m de ancho · hueco en el muro</p><OpeningHeightControls key={floor.id+opening.id+'-'+openingHeight(opening)+'-'+openingSill(opening)} opening={opening} onChange={(height,sill)=>change({...plan,openings:plan.openings.map(o=>o.id===opening.id?{...o,height,sill}:o)})}/></>:surface?<><p>{surfaceArea(surface.points).toFixed(2)} m² · contorno manual</p><SlabControls key={floor.id+surface.id+JSON.stringify([surface.slab,surface.roof])} surface={surface} plan={plan} onChange={(slab,roof)=>change({...plan,surfaces:plan.surfaces.map(s=>s.id===surface.id?{...s,slab,roof}:s)})}/></>:<>
+ {wall?<><p>{distance(wall.a,wall.b).toFixed(2)} m de largo · {(wallThickness(wall)*100).toFixed(0)} cm de espesor</p><WallHeightControls key={floor.id+wall.id+'-'+wallHeight(plan,wall)} plan={plan} wall={wall} onChange={height=>change({...plan,walls:plan.walls.map(w=>w.id===wall.id?{...w,height}:w)})}/></>:opening?<><p>{opening.width.toFixed(2)} m de ancho · hueco en el muro</p><OpeningHeightControls key={floor.id+opening.id+'-'+openingHeight(opening)+'-'+openingSill(opening)} opening={opening} onChange={(height,sill)=>change({...plan,openings:plan.openings.map(o=>o.id===opening.id?{...o,height,sill}:o)})}/></>:surface?<><p>{surfaceArea(surface.points).toFixed(2)} m² · contorno manual</p><SlabControls key={floor.id+surface.id+JSON.stringify([surface.slab,surface.roof])} surface={surface} plan={plan} onChange={(slab,roof)=>change({...plan,surfaces:plan.surfaces.map(s=>s.id===surface.id?{...s,slab,roof}:s)})}/><HoleControls key={floor.id+surface.id} surface={surface} onChange={holes=>change({...plan,surfaces:plan.surfaces.map(s=>s.id===surface.id?{...s,holes}:s)})} onDraw={target=>onHole(surface.id,target)}/></>:<>
  <LevelControls key={floor.id+'-'+floor.elevation+'-'+level} floor={floor} level={level} onChange={changeLevel}/>
  <GeneralHeightControls key={floor.id+'-'+(plan.wallHeight??2.8)} plan={plan} onChange={wallHeight=>change({...plan,wallHeight})}/>
  <p>Para crear losas y cubiertas, dibujá una superficie en 2D y elegila en Elemento.</p><button onClick={onSurface}>Dibujar contorno en planta</button>
  </>}
- <div className="model-files"><button onClick={onSave}>Descargar proyecto editable</button><button disabled={busy||!ready||!!fatal||!hasGeometry} onClick={()=>void png()}>{busy?'Preparando imagen…':'Descargar vista PNG'}</button></div><small>Muros, aberturas, losas y cubiertas planas. Las alturas se miden desde el piso de cada planta. Los contornos no siguen los muros ni recortan huecos automáticamente.</small>
+ <div className="model-files"><button onClick={onSave}>Descargar proyecto editable</button><button disabled={busy||!ready||!!fatal||!hasGeometry} onClick={()=>void png()}>{busy?'Preparando imagen…':'Descargar vista PNG'}</button></div><small>Muros, aberturas, losas y cubiertas planas. Las alturas se miden desde el piso de cada planta. Los huecos se dibujan en la planta y recortan el elemento elegido. Los contornos no siguen los muros automáticamente.</small>
  </aside>}
  </div>
  {error&&<div className="model-error" role="alert">{error}<button aria-label="Cerrar error" onClick={()=>setError('')}>×</button></div>}

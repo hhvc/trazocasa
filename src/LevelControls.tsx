@@ -18,5 +18,5 @@ export function SlabControls({surface,plan,onChange}:{surface:Surface;plan:Plan;
  {floor&&<label>Espesor de losa (m)<input aria-label="Espesor de losa" inputMode="decimal" value={thickness} onChange={e=>setThickness(e.target.value)}/></label>}
  <label className="plate-toggle"><input type="checkbox" checked={roof} onChange={e=>setRoof(e.target.checked)}/>Cubierta plana</label>
  {roof&&<><label>Altura inferior de cubierta (m)<input aria-label="Altura inferior de cubierta" inputMode="decimal" value={height} onChange={e=>setHeight(e.target.value)}/></label><label>Espesor de cubierta (m)<input aria-label="Espesor de cubierta" inputMode="decimal" value={roofThickness} onChange={e=>setRoofThickness(e.target.value)}/></label></>}
- <button>Aplicar losa y cubierta</button><small>La losa termina al nivel del piso. La cubierta empieza a la altura indicada sobre ese piso. Ambas siguen este contorno; modificá sus vértices en 2D. Sin huecos de escalera ni cálculo estructural.</small></form>;
+ <button>Aplicar losa y cubierta</button><small>La losa termina al nivel del piso. La cubierta empieza a la altura indicada sobre ese piso. Ambas siguen este contorno; modificá sus vértices en 2D. Los huecos se editan debajo. Sin cálculo estructural.</small></form>;
 }

@@ -1,4 +1,4 @@
-import { distance, openingHeight, openingSill, wallHeight, wallThickness, floorLevels } from './model';
+import { distance, openingHeight, openingSill, wallHeight, wallThickness, floorLevels, plateHoles } from './model';
 import type { Plan, Building } from './model';
 export type WallSolid = {from:number;to:number;bottom:number;top:number};
 /** Non-overlapping wall volumes leave actual openings, including doors at floor level. */
@@ -25,8 +25,8 @@ export function buildingVolumes(building:Building,options:ModelOptions){
   const plates=floor.plan.surfaces.flatMap(surface=>{
    const common={id:surface.id,name:surface.name,points:surface.points};
    return [
-    ...(surface.slab&&options.slabs?[{...common,kind:'floor' as const,bottom:-surface.slab.thickness,top:0}]:[]),
-    ...(surface.roof&&options.roofs?[{...common,kind:'roof' as const,bottom:surface.roof.height,top:surface.roof.height+surface.roof.thickness}]:[]),
+    ...(surface.slab&&options.slabs?[{...common,kind:'floor' as const,holes:plateHoles(surface,'slab'),bottom:-surface.slab.thickness,top:0}]:[]),
+    ...(surface.roof&&options.roofs?[{...common,kind:'roof' as const,holes:plateHoles(surface,'roof'),bottom:surface.roof.height,top:surface.roof.height+surface.roof.thickness}]:[]),
    ];
   });
   return [{id:floor.id,name:floor.name,elevation:levels[index],walls:wallVolumes(floor.plan),plates}];

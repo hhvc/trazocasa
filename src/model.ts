@@ -2,7 +2,8 @@ export type Point = { x: number; y: number };
 export type Projection = {id:string;name:string;points:Point[];closed:boolean};
 export type Slab = { thickness: number };
 export type FlatRoof = Slab & { height: number };
-export type Surface = { slab?: Slab; roof?: FlatRoof; id: string; name: string; points: Point[] };
+export type SurfaceHole = {id:string;name:string;target:'slab'|'roof'|'both';points:Point[]};
+export type Surface = { holes?: SurfaceHole[]; slab?: Slab; roof?: FlatRoof; id: string; name: string; points: Point[] };
 export type Dimension = { id: string; a: Point; b: Point; offset: number };
 export type Wall = { height?: number; id: string; a: Point; b: Point; thickness?: number };
 export type Opening = { height?: number; sill?: number; id: string; wallId: string; t: number; width: number; kind: 'door' | 'window'; hinge?: 'start' | 'end'; swing?: 'negative' | 'positive' };
@@ -85,6 +86,18 @@ export function validatePlan(value: unknown): Plan {
   for (const s of surfaces) {
     if (typeof s.name !== 'string' || !s.name.trim() || s.name.length > 80) throw new Error('El nombre de la superficie no es válido.');
     validateSurface(s.points);
+    if(s.holes!==undefined){
+      if(!Array.isArray(s.holes)||s.holes.length>20)throw new Error('Cada contorno admite hasta 20 huecos.');
+      for(const h of s.holes){
+        if(!h||typeof h.id!=='string'||!h.id||ids.has(h.id)||typeof h.name!=='string'||!h.name.trim()||h.name.length>60||!['slab','roof','both'].includes(h.target))throw new Error('Revisá el nombre y el destino de los huecos.');
+        ids.add(h.id);validateSurface(h.points);
+        if(h.points.some(p=>!pointInsideContour(p,s.points))||contoursTouch(h.points,s.points))throw new Error('El hueco debe quedar completamente dentro del contorno, sin tocar su borde.');
+      }
+      for(let i=0;i<s.holes.length;i++)for(let j=i+1;j<s.holes.length;j++){
+        const a=s.holes[i].points,b=s.holes[j].points;
+        if(contoursTouch(a,b)||pointInsideContour(a[0],b)||pointInsideContour(b[0],a))throw new Error('Los huecos no pueden superponerse, tocarse ni contenerse entre sí.');
+      }
+    }
     for(const plate of [s.slab,s.roof])if(plate!==undefined&&(!plate||!finite(plate.thickness)||plate.thickness<.05||plate.thickness>1))throw new Error('El espesor de losa o cubierta debe estar entre 0,05 y 1 m.');
     if(s.roof!==undefined&&(!finite(s.roof.height)||s.roof.height<.5||s.roof.height>20))throw new Error('La altura inferior de la cubierta debe estar entre 0,50 y 20 m.');
   }
@@ -106,7 +119,7 @@ export function validatePlan(value: unknown): Plan {
     if (f.kind === 'roundCoffeeTable' && f.width !== f.depth) throw new Error('La mesa redonda debe tener un único diámetro.');
     if (!point(f) || !furnitureCatalog.some(item => item.kind === f.kind) || !finite(f.width) || !finite(f.depth) || f.width < .2 || f.width > 10 || f.depth < .2 || f.depth > 10 || !finite(f.rotation) || f.rotation < 0 || f.rotation >= 360) throw new Error('El proyecto contiene muebles inválidos.');
   }
-  return { ...(p.wallHeight!==undefined?{wallHeight:p.wallHeight}:{}), ...(p.projections?{projections:projections.map(r=>({...r,points:r.points.map(p=>({...p}))}))}:{}), ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y})),...(s.slab?{slab:{thickness:s.slab.thickness}}:{}),...(s.roof?{roof:{thickness:s.roof.thickness,height:s.roof.height}}:{})})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}), ...(w.height!==undefined?{height:w.height}:{}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.height!==undefined?{height:o.height}:{}), ...(o.sill!==undefined?{sill:o.sill}:{}), ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
+  return { ...(p.wallHeight!==undefined?{wallHeight:p.wallHeight}:{}), ...(p.projections?{projections:projections.map(r=>({...r,points:r.points.map(p=>({...p}))}))}:{}), ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y})),...(s.holes!==undefined?{holes:s.holes.map(h=>({id:h.id,name:h.name,target:h.target,points:h.points.map(p=>({x:p.x,y:p.y}))}))}:{}),...(s.slab?{slab:{thickness:s.slab.thickness}}:{}),...(s.roof?{roof:{thickness:s.roof.thickness,height:s.roof.height}}:{})})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}), ...(w.height!==undefined?{height:w.height}:{}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.height!==undefined?{height:o.height}:{}), ...(o.sill!==undefined?{sill:o.sill}:{}), ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
 }
 export function sample(): Plan {
   const wall = (id: string, x: number, y: number, x2: number, y2: number): Wall => ({ id, a: { x, y }, b: { x: x2, y: y2 } });
@@ -314,13 +327,14 @@ export function validateSurface(points: Point[]): void {
   if(surfaceArea(points)<.01-1e-9) throw new Error('La superficie debe ser de al menos 0,01 m².');
 }
 /** Pick an interior scanline interval, including for concave rooms. */
-export function surfaceLabel(points: Point[]): Point {
-  const ys=[...new Set(points.map(p=>p.y))].sort((a,b)=>a-b);
+export function surfaceLabel(points: Point[], holes: Point[][]=[]): Point {
+  const contours=[points,...holes];
+  const ys=[...new Set(contours.flatMap(path=>path.map(p=>p.y)))].sort((a,b)=>a-b);
   let best={x:points[0].x,y:points[0].y}, width=-1;
   for(let k=1;k<ys.length;k++) {
     const y=(ys[k-1]+ys[k])/2, xs:number[]=[];
-    for(let i=0;i<points.length;i++) {
-      const a=points[i],b=points[(i+1)%points.length];
+    for(const path of contours)for(let i=0;i<path.length;i++) {
+      const a=path[i],b=path[(i+1)%path.length];
       if((a.y>y)!==(b.y>y)) xs.push(a.x+(y-a.y)*(b.x-a.x)/(b.y-a.y));
     }
     xs.sort((a,b)=>a-b);
@@ -429,4 +443,44 @@ export function floorLevels(building: Building): number[] {
     levels.push(floor.elevation??(i?levels[i-1]+height+thickness:0));
   });
   return levels;
+}
+
+export function pointInsideContour(point:Point,points:Point[]):boolean{
+ let inside=false;
+ for(let i=0,j=points.length-1;i<points.length;j=i++){
+  const a=points[i],b=points[j];
+  if((a.y>point.y)!==(b.y>point.y)&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
+ }
+ return inside;
+}
+function contoursTouch(a:Point[],b:Point[]):boolean{
+ const cross=(a:Point,b:Point,c:Point)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+ const on=(a:Point,b:Point,p:Point)=>Math.abs(cross(a,b,p))<1e-8&&p.x>=Math.min(a.x,b.x)-1e-8&&p.x<=Math.max(a.x,b.x)+1e-8&&p.y>=Math.min(a.y,b.y)-1e-8&&p.y<=Math.max(a.y,b.y)+1e-8;
+ return a.some((p,i)=>b.some((r,j)=>{
+  const q=a[(i+1)%a.length],s=b[(j+1)%b.length];
+  return on(p,q,r)||on(p,q,s)||on(r,s,p)||on(r,s,q)||(cross(p,q,r)*cross(p,q,s)<0&&cross(r,s,p)*cross(r,s,q)<0);
+ }));
+}
+export function plateHoles(surface:Surface,target:'slab'|'roof'):Point[][]{
+ return (surface.holes??[]).filter(h=>h.target===target||h.target==='both').map(h=>h.points);
+}
+export function plateArea(surface:Surface,target:'slab'|'roof'):number{
+ return surfaceArea(surface.points)-plateHoles(surface,target).reduce((sum,points)=>sum+surfaceArea(points),0);
+}
+export function addSurfaceHole(plan:Plan,surfaceId:string,points:Point[],target:SurfaceHole['target']):Plan{
+ const surface=plan.surfaces.find(s=>s.id===surfaceId);
+ if(!surface)throw new Error('No se encontró el contorno del hueco.');
+ return validatePlan({...plan,surfaces:plan.surfaces.map(s=>s.id===surfaceId?{...s,holes:[...(s.holes??[]),{id:uid(),name:'Hueco '+((s.holes?.length??0)+1),target,points}]}:s)});
+}
+export function editSurfaceGeometry(plan:Plan,surfaceId:string,edit:{delta:Point}|{vertex:number;point:Point},holeId?:string):Plan{
+ const surface=plan.surfaces.find(s=>s.id===surfaceId);
+ if(!surface||holeId&&!surface.holes?.some(h=>h.id===holeId))throw new Error('No se encontró el contorno a editar.');
+ const move=(points:Point[])=>points.map((p,i)=>'delta' in edit?{x:p.x+edit.delta.x,y:p.y+edit.delta.y}:i===edit.vertex?edit.point:p);
+ const changed=holeId?{...surface,holes:surface.holes!.map(h=>h.id===holeId?{...h,points:move(h.points)}:h)}:{...surface,points:move(surface.points),...('delta' in edit&&surface.holes?{holes:surface.holes.map(h=>({...h,points:move(h.points)}))}:{})};
+ return validatePlan({...plan,surfaces:plan.surfaces.map(s=>s.id===surfaceId?changed:s)});
+}
+export function resizeSurfaceHole(hole:SurfaceHole,width:number,depth:number):SurfaceHole{
+ if(!Number.isFinite(width)||!Number.isFinite(depth)||width<.1||depth<.1||width>100||depth>100)throw new Error('El ancho y largo del hueco deben estar entre 0,10 y 100 m.');
+ const xs=hole.points.map(p=>p.x),ys=hole.points.map(p=>p.y),x=Math.min(...xs),y=Math.min(...ys),w=Math.max(...xs)-x,d=Math.max(...ys)-y;
+ return {...hole,points:hole.points.map(p=>({x:x+(p.x-x)*width/w,y:y+(p.y-y)*depth/d}))};
 }
