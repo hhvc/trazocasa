@@ -1,6 +1,6 @@
 # TrazoCasa
 
-Editor local de viviendas con planta 2D de estilo bosquejo y visualización 3D de muros y aberturas. Vite + React + TypeScript, SVG, Three.js y coordenadas en metros.
+Editor local de viviendas con planta 2D de estilo bosquejo y visualización 3D de plantas, muros, aberturas, losas y cubiertas planas. Vite + React + TypeScript, SVG, Three.js y coordenadas en metros.
 
 ## Ejecutar
 
@@ -269,7 +269,7 @@ Mientras haya puntos pendientes aparece una barra con Guardar abierta, Guardar c
 
 ## Modelo 3D y fachadas desde la planta
 
-**Ver 3D**, junto al selector de plantas, abre el modelo de la planta activa. El lienzo ocupa la pantalla; **Alturas y opciones** despliega un inspector superpuesto. **Editar planta** vuelve al dibujo 2D para cambiar posiciones, largos, espesores y aberturas.
+**Ver 3D**, junto al selector de plantas, abre el edificio completo. El selector **Alcance del modelo** alterna entre edificio completo y solo la planta activa. El lienzo ocupa la pantalla; **Niveles y opciones** despliega un inspector superpuesto. **Editar planta** vuelve al dibujo 2D para cambiar posiciones, largos, espesores y aberturas.
 
 - En **3D**, arrastrar gira el modelo; botón derecho desplaza. Rueda o dos dedos acercan/alejan. Los botones de zoom y **Encuadrar** también están disponibles.
 - **Frente, Contrafrente, Lateral izquierdo y Lateral derecho** muestran proyecciones ortográficas, sin perspectiva. Frente mira desde el borde inferior del plano. En estas vistas, arrastrar desplaza sin girar.
@@ -278,10 +278,29 @@ Mientras haya puntos pendientes aparece una barra con Guardar abierta, Guardar c
 - Puertas: altura inicial **2,10 m**, siempre desde el piso. Ventanas: altura inicial **1,20 m** y antepecho **0,90 m**. Los huecos se recortan del muro. Se rechazan cambios que dejen una abertura por encima de su pared; ajustar primero la abertura si se necesita bajar el muro.
 - Los cambios de altura participan de deshacer/rehacer, autoguardado, biblioteca, versiones y archivos `.trazocasa`. **Descargar proyecto editable** guarda el edificio completo; **Descargar vista PNG** exporta el encuadre actual, sin controles ni resaltado de selección.
 
-Primera etapa: se visualiza **una planta por vez**, con sus muros y huecos. Todavía no se apilan niveles ni se generan losas, cubiertas, mobiliario 3D o cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
+Se muestran juntas las plantas en sus coordenadas originales, con muros, huecos, losas y cubiertas planas. Las cuatro fachadas y el PNG respetan el alcance y la visibilidad elegidos. Elegir un elemento del edificio activa su planta; los elementos copiados en distintos pisos se seleccionan y editan de forma independiente.
+
+### Niveles de piso
+
+En **Niveles y opciones → Elemento → Nivel y altura general** se edita el nivel absoluto del piso, entre -100 y 500 m. Admite coma decimal y **Usar nivel automático**. Por defecto la primera planta comienza en 0 m; cada planta siguiente se sitúa sobre la pared más alta de la anterior (o su altura general si está vacía), sumando el mayor espesor de sus losas de piso, con un mínimo de 20 cm. Por ejemplo: muros de 2,80 m y losa de 20 cm sitúan el piso superior a 3,00 m.
+
+El cálculo sigue el orden del selector, no el nombre de la planta. Cambiar alturas, espesores o eliminar una planta recalcula los niveles automáticos que le siguen. Los niveles manuales se mantienen fijos; se permiten desniveles y superposiciones, sin detección automática de interferencias.
+
+### Losas y cubiertas planas
+
+1. Dibujar un contorno con **Superficie (S)** en la planta 2D. Puede ser rectangular o irregular, incluso cóncavo. No se genera una envolvente rectangular ni se rellenan patios por fuera del contorno.
+2. Seleccionarlo en 2D, o en **Ver 3D → Niveles y opciones → Elemento → Superficie**.
+3. Activar **Losa de piso**, **Cubierta plana**, o ambas, indicar espesores y pulsar **Aplicar losa y cubierta**. Cada espesor admite de 0,05 a 1 m. La losa termina al nivel de piso y se extiende hacia abajo; la cubierta empieza a su altura inferior indicada sobre ese piso (0,50 a 20 m) y se extiende hacia arriba.
+4. Modificar el contorno arrastrando sus vértices en 2D. Losa y cubierta siguen esa superficie; no siguen automáticamente los cambios de muros. Desactivar sus casillas y aplicar quita los volúmenes, conservando el contorno.
+
+**Ocultar losas / Ocultar cubiertas** son controles visuales temporales: permiten mirar el interior sin borrar elementos y también afectan al PNG. La altura de la cubierta es un dato propio; no se modifica automáticamente al cambiar alturas de muros. Las superficies conservan su medición en el resumen existente, que sigue sumando todos los contornos y no equivale a superficie construida.
+
+Los niveles y las propiedades de losas/cubiertas se conservan en autoguardado, archivos, biblioteca, versiones y Deshacer/Rehacer. Duplicar una planta completa conserva sus contornos y propiedades pero calcula un nivel nuevo; copiar solo paredes no copia las losas.
+
+Pendientes: huecos interiores para escaleras, pendientes de techo, mobiliario 3D y cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
 
 La visualización se procesa íntegramente en el navegador. Three.js se descarga como módulo separado al abrir el visor; requiere WebGL 2. Si no está disponible, se informa el problema y se puede continuar en 2D. El motor dibuja cuando cambia la escena o la cámara, sin una animación continua.
 
-Se conserva el formato v7 del edificio y v6 de cada planta, agregando campos opcionales para alturas y antepechos. Los archivos anteriores abren con las alturas iniciales indicadas, sin cambiar sus coordenadas. Versiones anteriores del editor pueden descartar estos campos al guardar. Las antiguas vistas manuales ya no tienen acceso desde la interfaz; sus datos existentes se conservan al abrir y guardar proyectos, para evitar perder dibujos anteriores.
+Se conserva el formato v7 del edificio y v6 de cada planta, agregando campos opcionales para alturas, antepechos, niveles de piso, losas y cubiertas. Los archivos anteriores abren con las alturas iniciales indicadas, sin cambiar sus coordenadas. Versiones anteriores del editor pueden descartar estos campos al guardar. Las antiguas vistas manuales ya no tienen acceso desde la interfaz; sus datos existentes se conservan al abrir y guardar proyectos, para evitar perder dibujos anteriores.
 
-Las pruebas automatizadas cubren compatibilidad, persistencia, alturas inválidas, conservación de propiedades al editar/copiar muros y geometría de huecos en muros rectos o diagonales.
+Las pruebas automatizadas cubren compatibilidad, persistencia, alturas inválidas, conservación de propiedades al editar/copiar muros y geometría de huecos en muros rectos o diagonales, niveles de varias plantas, selección independiente y extrusión de contornos cóncavos en ambos sentidos.

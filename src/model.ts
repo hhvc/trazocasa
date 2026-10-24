@@ -1,6 +1,8 @@
 export type Point = { x: number; y: number };
 export type Projection = {id:string;name:string;points:Point[];closed:boolean};
-export type Surface = { id: string; name: string; points: Point[] };
+export type Slab = { thickness: number };
+export type FlatRoof = Slab & { height: number };
+export type Surface = { slab?: Slab; roof?: FlatRoof; id: string; name: string; points: Point[] };
 export type Dimension = { id: string; a: Point; b: Point; offset: number };
 export type Wall = { height?: number; id: string; a: Point; b: Point; thickness?: number };
 export type Opening = { height?: number; sill?: number; id: string; wallId: string; t: number; width: number; kind: 'door' | 'window'; hinge?: 'start' | 'end'; swing?: 'negative' | 'positive' };
@@ -83,6 +85,8 @@ export function validatePlan(value: unknown): Plan {
   for (const s of surfaces) {
     if (typeof s.name !== 'string' || !s.name.trim() || s.name.length > 80) throw new Error('El nombre de la superficie no es válido.');
     validateSurface(s.points);
+    for(const plate of [s.slab,s.roof])if(plate!==undefined&&(!plate||!finite(plate.thickness)||plate.thickness<.05||plate.thickness>1))throw new Error('El espesor de losa o cubierta debe estar entre 0,05 y 1 m.');
+    if(s.roof!==undefined&&(!finite(s.roof.height)||s.roof.height<.5||s.roof.height>20))throw new Error('La altura inferior de la cubierta debe estar entre 0,50 y 20 m.');
   }
   if(p.reference!==undefined){const r=p.reference;if(!r||typeof r.data!=='string'||r.data.length>400_000||!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(r.data)||typeof r.name!=='string'||r.name.length>100||!point(r)||!finite(r.width)||!finite(r.height)||r.width<.1||r.height<.1||r.width>100||r.height>100||!finite(r.opacity)||r.opacity<0||r.opacity>1||typeof r.visible!=='boolean')throw new Error('La imagen de referencia no es válida.');}
   const checked: Plan = { ...p, version: 6, surfaces, dimensions, furniture, openings: [] };
@@ -102,7 +106,7 @@ export function validatePlan(value: unknown): Plan {
     if (f.kind === 'roundCoffeeTable' && f.width !== f.depth) throw new Error('La mesa redonda debe tener un único diámetro.');
     if (!point(f) || !furnitureCatalog.some(item => item.kind === f.kind) || !finite(f.width) || !finite(f.depth) || f.width < .2 || f.width > 10 || f.depth < .2 || f.depth > 10 || !finite(f.rotation) || f.rotation < 0 || f.rotation >= 360) throw new Error('El proyecto contiene muebles inválidos.');
   }
-  return { ...(p.wallHeight!==undefined?{wallHeight:p.wallHeight}:{}), ...(p.projections?{projections:projections.map(r=>({...r,points:r.points.map(p=>({...p}))}))}:{}), ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y}))})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}), ...(w.height!==undefined?{height:w.height}:{}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.height!==undefined?{height:o.height}:{}), ...(o.sill!==undefined?{sill:o.sill}:{}), ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
+  return { ...(p.wallHeight!==undefined?{wallHeight:p.wallHeight}:{}), ...(p.projections?{projections:projections.map(r=>({...r,points:r.points.map(p=>({...p}))}))}:{}), ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y})),...(s.slab?{slab:{thickness:s.slab.thickness}}:{}),...(s.roof?{roof:{thickness:s.roof.thickness,height:s.roof.height}}:{})})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}), ...(w.height!==undefined?{height:w.height}:{}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.height!==undefined?{height:o.height}:{}), ...(o.sill!==undefined?{sill:o.sill}:{}), ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
 }
 export function sample(): Plan {
   const wall = (id: string, x: number, y: number, x2: number, y2: number): Wall => ({ id, a: { x, y }, b: { x: x2, y: y2 } });
@@ -328,7 +332,7 @@ export function addSurface(plan: Plan, points: Point[], name='Ambiente'): Plan {
   return validatePlan({...plan,surfaces:[...plan.surfaces,{id:uid(),name:name.trim()||'Ambiente',points}]});
 }
 
-export type Floor = { id: string; name: string; plan: Plan };
+export type Floor = { elevation?: number; id: string; name: string; plan: Plan };
 export type ViewGuides = { floorId: string; visible: boolean; levels: number[] };
 export type DrawingView = { guides?: ViewGuides; id: string; name: string; plan: Plan };
 export type Building = { views?: DrawingView[]; format: 'trazocasa'; version: 7; name: string; activeFloorId: string; floors: Floor[] };
@@ -346,7 +350,8 @@ export function validateBuilding(value: unknown): Building {
   const floors=b.floors.map(f=>{
     if(!f||typeof f.id!=='string'||!f.id||ids.has(f.id)||typeof f.name!=='string'||!f.name.trim()||f.name.length>60)throw new Error('La lista de plantas no es válida.');
     ids.add(f.id);
-    return {id:f.id,name:f.name,plan:validatePlan(f.plan)};
+    if(f.elevation!==undefined&&(typeof f.elevation!=='number'||!Number.isFinite(f.elevation)||f.elevation< -100||f.elevation>500))throw new Error('El nivel de piso debe estar entre -100 y 500 m.');
+    return {id:f.id,name:f.name,plan:validatePlan(f.plan),...(f.elevation!==undefined?{elevation:f.elevation}:{})};
   });
   if(!ids.has(b.activeFloorId))throw new Error('No se encontró la planta activa.');
   let views: DrawingView[] | undefined;
@@ -413,3 +418,15 @@ export function frontReference(plan: Plan) {
 export function wallHeight(plan: Plan, wall: Wall): number { return wall.height ?? plan.wallHeight ?? 2.8; }
 export function openingHeight(opening: Opening): number { return opening.height ?? (opening.kind==='door'?2.1:1.2); }
 export function openingSill(opening: Opening): number { return opening.kind==='door'?0:opening.sill??.9; }
+
+/** Floors follow list order unless an absolute floor level is explicitly set. */
+export function floorLevels(building: Building): number[] {
+  const levels:number[]=[];
+  building.floors.forEach((floor,i)=>{
+    const previous=building.floors[i-1];
+    const height=previous?(previous.plan.walls.length?Math.max(...previous.plan.walls.map(w=>wallHeight(previous.plan,w))):previous.plan.wallHeight??2.8):0;
+    const thickness=Math.max(.2,...floor.plan.surfaces.map(s=>s.slab?.thickness??0));
+    levels.push(floor.elevation??(i?levels[i-1]+height+thickness:0));
+  });
+  return levels;
+}
