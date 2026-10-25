@@ -575,5 +575,14 @@ export function wallClearHeight(plan:Plan,wall:Wall,from:number,to:number):numbe
  return Math.min(...wallRoofProfile(plan,wall).filter(s=>s.to>from+1e-8&&s.from<to-1e-8).flatMap(s=>[Math.max(from,s.from),Math.min(to,s.to)].flatMap(x=>[-wallThickness(wall)/2,wallThickness(wall)/2].map(z=>Math.min(...(s.planes??[s.plane]).map(p=>planeHeight(p,wallProfilePoint(wall,x,z))))))));
 }
 export function effectiveWallHeight(plan:Plan,wall:Wall):number{
- return Math.max(...wallRoofProfile(plan,wall).flatMap(s=>[s.from,s.to].flatMap(x=>[-wallThickness(wall)/2,wallThickness(wall)/2].map(z=>planeHeight(s.plane,wallProfilePoint(wall,x,z))))));
+ const length=distance(wall.a,wall.b),dx=(wall.b.x-wall.a.x)/length,dy=(wall.b.y-wall.a.y)/length,half=wallThickness(wall)/2,heights:number[]=[];
+ for(const segment of wallRoofProfile(plan,wall)){
+  const planes=(segment.planes??[segment.plane]).map(p=>({a:p.a*dx+p.b*dy,b:-p.a*dy+p.b*dx,c:planeHeight(p,wall.a)}));
+  for(const p of planes){
+   let cell=[{x:segment.from,y:-half},{x:segment.to,y:-half},{x:segment.to,y:half},{x:segment.from,y:half}];
+   for(const q of planes){if(p!==q)cell=clipContour(cell,{a:p.a-q.a,b:p.b-q.b,c:p.c-q.c});}
+   heights.push(...cell.map(v=>planeHeight(p,v)));
+  }
+ }
+ return Math.max(...heights);
 }

@@ -266,3 +266,9 @@ test('sloped wall meshes meet the roof on both faces and preserve window and doo
  const ray=new Raycaster(new Vector3(w.length*.25,1,-1),new Vector3(0,0,1));assert.equal(meshes.flatMap(m=>ray.intersectObject(m)).length,0);
  meshes.forEach(m=>{m.geometry.dispose();m.material.dispose();});
 });
+
+test('automatic floor levels include a roof peak lying inside the wall thickness, off its axis',()=>{
+ const p=pitched('hip');p.walls[0]={id:'w',a:{x:0,y:2.9},b:{x:8,y:2.9},thickness:.4};
+ close(effectiveWallHeight(validatePlan(p),p.walls[0]),3.7);
+ const b=addFloor(buildingFromPlan(p),'Alta','blank');close(floorLevels(b)[1],3.9);
+});
