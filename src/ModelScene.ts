@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {plateGeometry} from './plateGeometry';
+import {plateGeometry,roofGeometry,wallSolidGeometry} from './plateGeometry';
 import {modelSelectionKey} from './model3d';
 import type {BuildingVolumes,ModelSelection} from './model3d';
 export type ModelView='3d'|'front'|'back'|'left'|'right';
@@ -42,7 +42,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
    const floorGroup=new THREE.Group();floorGroup.position.y=floor.elevation;group.add(floorGroup);
    const selection=(elementId:string)=>({floorId:floor.id,elementId});
    for(const plate of floor.plates){
-    const geometry=plateGeometry(plate.points,plate.top-plate.bottom,plate.holes);
+    const geometry=plate.planes?roofGeometry(plate.points,plate.top-plate.bottom,plate.holes,plate.planes,plate.bottom):plateGeometry(plate.points,plate.top-plate.bottom,plate.holes);
     const color=plate.kind==='roof'?'#a7b3a4':'#d6ccb6',material=new THREE.MeshStandardMaterial({color,roughness:1,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
     const mesh=new THREE.Mesh(geometry,material);mesh.position.y=plate.bottom;mesh.userData.selection=selection(plate.id);floorGroup.add(mesh);selectable.push(mesh);remember(modelSelectionKey(selection(plate.id)),material,color);
     const outline=new THREE.LineSegments(new THREE.EdgesGeometry(geometry),new THREE.LineBasicMaterial({color:'#637166'}));outline.position.y=plate.bottom;floorGroup.add(outline);
@@ -50,13 +50,15 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
    for(const w of floor.walls){
    const wall=new THREE.Group();wall.position.set(w.a.x,0,w.a.y);wall.rotation.y=-w.angle;floorGroup.add(wall);
    const material=new THREE.MeshStandardMaterial({color:'#e6e4d8',roughness:1,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});remember(modelSelectionKey(selection(w.id)),material,'#e6e4d8');
-   for(const s of w.solids){const mesh=new THREE.Mesh(new THREE.BoxGeometry(s.to-s.from,s.top-s.bottom,w.thickness),material);mesh.position.set((s.from+s.to)/2,(s.bottom+s.top)/2,0);mesh.userData.selection=selection(w.id);wall.add(mesh);selectable.push(mesh);}
+   for(const s of w.solids){const mesh=new THREE.Mesh(wallSolidGeometry(w,s),material);mesh.userData.selection=selection(w.id);wall.add(mesh);selectable.push(mesh);}
    const edges:number[]=[];const line=(a:number[],b:number[])=>edges.push(...a,...b);
+   const top=(s:typeof w.profile[number],x:number,z:number)=>{const cos=Math.cos(w.angle),sin=Math.sin(w.angle),px=w.a.x+x*cos-z*sin,py=w.a.y+x*sin+z*cos;return Math.min(...(s.planes??[s.plane]).map(p=>p.a*px+p.b*py+p.c));};
    for(const z of [-w.thickness/2,w.thickness/2]){
-    line([0,0,z],[0,w.height,z]);line([w.length,0,z],[w.length,w.height,z]);
-    for(const s of w.solids){if(s.top===w.height)line([s.from,w.height,z],[s.to,w.height,z]);if(s.bottom===0)line([s.from,0,z],[s.to,0,z]);}
+    line([0,0,z],[0,top(w.profile[0],0,z),z]);line([w.length,0,z],[w.length,top(w.profile.at(-1)!,w.length,z),z]);
+    for(const s of w.profile)line([s.from,top(s,s.from,z),z],[s.to,top(s,s.to,z),z]);
+    for(const s of w.solids)if(s.bottom===0)line([s.from,0,z],[s.to,0,z]);
    }
-   for(const x of [0,w.length])for(const y of [0,w.height])line([x,y,-w.thickness/2],[x,y,w.thickness/2]);
+   for(const [x,s] of [[0,w.profile[0]],[w.length,w.profile.at(-1)!]] as const){line([x,0,-w.thickness/2],[x,0,w.thickness/2]);line([x,top(s,x,-w.thickness/2),-w.thickness/2],[x,top(s,x,w.thickness/2),w.thickness/2]);}
    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(edges,3));wall.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:'#637166'})));
    for(const o of w.openings){
     const edgeMaterial=new THREE.LineBasicMaterial({color:o.kind==='door'?'#9b7854':'#56888a'});remember(modelSelectionKey(selection(o.id)),edgeMaterial,o.kind==='door'?'#9b7854':'#56888a');

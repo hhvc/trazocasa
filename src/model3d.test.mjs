@@ -6,7 +6,7 @@ import ts from 'typescript';
 const compile=s=>ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const url=s=>`data:text/javascript;base64,${Buffer.from(s).toString('base64')}`;
 const modelUrl=url(compile(await readFile(new URL('./model.ts',import.meta.url),'utf8')));
-const {emptyPlan,sample,validatePlan,validateBuilding,buildingFromPlan,wallHeight,openingHeight,openingSill,addFloor,removeFloor,replaceFloorPlan,moveWallEndpoint,splitWall,floorLevels,addSurfaceHole,editSurfaceGeometry,resizeSurfaceHole,plateArea,plateHoles,surfaceLabel,pointInsideContour}=await import(modelUrl);
+const {emptyPlan,sample,validatePlan,validateBuilding,buildingFromPlan,wallHeight,openingHeight,openingSill,addFloor,removeFloor,replaceFloorPlan,moveWallEndpoint,splitWall,floorLevels,addSurfaceHole,editSurfaceGeometry,resizeSurfaceHole,plateArea,plateHoles,surfaceLabel,pointInsideContour,roofPlanes,roofHeightAt,roofHeightRange,wallRoofProfile,wallClearHeight,effectiveWallHeight,wallProfilePoint}=await import(modelUrl);
 const source=await readFile(new URL('./model3d.ts',import.meta.url),'utf8');
 const {wallVolumes,buildingVolumes,modelSelectionKey}=await import(url(compile(source).replace("'./model'",JSON.stringify(modelUrl))));
 const base=()=>({...emptyPlan(),walls:[{id:'w',a:{x:0,y:0},b:{x:8,y:0},thickness:.2}],openings:[{id:'d',wallId:'w',kind:'door',t:.25,width:1},{id:'v',wallId:'w',kind:'window',t:.7,width:1.2}]});
@@ -112,7 +112,7 @@ test('floor slabs end at the floor; flat roofs start at their own height; visibi
  assert.equal(JSON.stringify(b),before);
 });
 const geometrySource=await readFile(new URL('./plateGeometry.ts',import.meta.url),'utf8');
-const {plateGeometry}=await import(url(compile(geometrySource).replace("'three'",JSON.stringify(import.meta.resolve('three')))));
+const {plateGeometry,roofGeometry,wallSolidGeometry}=await import(url(compile(geometrySource).replace("'three'",JSON.stringify(import.meta.resolve('three')))));
 test('concave slabs keep their notch and correct XYZ mapping in either winding direction',()=>{
  const points=[{x:2,y:3},{x:6,y:3},{x:6,y:4},{x:3,y:4},{x:3,y:6},{x:2,y:6}];
  for(const path of [points,[...points].reverse()]){
@@ -198,4 +198,71 @@ test('extruded plates have actual through holes and correct net area in all wind
   }
   assert.ok(Math.abs(area-43)<1e-6);geometry.dispose();mesh.material.dispose();
  }
+});
+
+const pitched=(kind='gable',direction=0)=>({...emptyPlan(),surfaces:[{id:'roof',name:'Techo',points:holeRect(0,0,8,6),roof:{height:2.8,thickness:.2,fitWalls:true,shape:{kind,direction,slope:30}}}],walls:[{id:'w',a:{x:0,y:0},b:{x:8,y:0},thickness:.2}],openings:[]});
+const close=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-5,actual+' != '+expected);
+test('roof presets give one, two, three and four distinct slopes with correct ridges and rotation',()=>{
+ for(const [kind,count] of [['shed',1],['gable',2],['halfHip',3],['hip',4]])assert.equal(roofPlanes(validatePlan(pitched(kind)).surfaces[0]).length,count);
+ close(roofHeightAt(pitched('shed').surfaces[0],{x:8,y:3}),5.2);
+ close(roofHeightAt(pitched('shed',180).surfaces[0],{x:8,y:3}),2.8);
+ close(roofHeightAt(pitched('shed',90).surfaces[0],{x:4,y:6}),4.6);
+ close(roofHeightAt(pitched().surfaces[0],{x:4,y:0}),4);
+ close(roofHeightAt(pitched('halfHip').surfaces[0],{x:4,y:0}),2.8);
+ close(roofHeightAt(pitched('halfHip').surfaces[0],{x:4,y:6}),4);
+ close(roofHeightAt(pitched('hip').surfaces[0],{x:4,y:6}),2.8);
+ close(roofHeightAt(pitched('hip').surfaces[0],{x:4,y:3}),3.7);
+});
+test('perimeter roofs support five and more slopes in both contour windings and reject concave outlines',()=>{
+ for(const n of [3,5,6,9])for(const reverse of [false,true]){
+  const p=pitched('perimeter'),points=Array.from({length:n},(_,i)=>({x:4+3*Math.cos(i*2*Math.PI/n),y:4+3*Math.sin(i*2*Math.PI/n)}));p.surfaces[0].points=reverse?points.reverse():points;p.walls=[];
+  const surface=validatePlan(p).surfaces[0];assert.equal(roofPlanes(surface).length,n);close(roofHeightAt(surface,{x:4,y:4}),2.8+.9*Math.cos(Math.PI/n));
+  for(const point of points)close(roofHeightAt(surface,point),2.8);
+ }
+ const p=pitched('perimeter');p.surfaces[0].points=[{x:0,y:0},{x:8,y:0},{x:8,y:2},{x:2,y:2},{x:2,y:6},{x:0,y:6}];assert.throws(()=>validatePlan(p),/convexo/);
+});
+test('roof shape, fitting and holes survive save, copy, move and legacy loading',()=>{
+ const p=addSurfaceHole(validatePlan(pitched('hip',35)),'roof',holeRect(2,2,1,1),'roof');
+ const b=addFloor(buildingFromPlan(p),'Alta','copy');assert.deepEqual(validateBuilding(JSON.parse(JSON.stringify(b))),b);
+ assert.notEqual(b.floors[0].plan.surfaces[0].roof.shape,b.floors[1].plan.surfaces[0].roof.shape);
+ const moved=editSurfaceGeometry(p,'roof',{delta:{x:10,y:-5}});close(roofHeightAt(p.surfaces[0],{x:3,y:3}),roofHeightAt(moved.surfaces[0],{x:13,y:-2}));
+ const legacy=platePlan();assert.deepEqual(validatePlan(legacy),legacy);
+});
+test('roof validation refuses bad slopes, orientations, flags and excessive ridge heights atomically',()=>{
+ const p=pitched(),before=JSON.stringify(p);
+ for(const patch of [{slope:0},{slope:201},{slope:NaN},{direction:360},{direction:-1},{kind:'unknown'}])assert.throws(()=>validatePlan({...p,surfaces:[{...p.surfaces[0],roof:{...p.surfaces[0].roof,shape:{...p.surfaces[0].roof.shape,...patch}}}]}));
+ assert.throws(()=>validatePlan({...p,surfaces:[{...p.surfaces[0],roof:{...p.surfaces[0].roof,fitWalls:'yes'}}]}));
+ const high=pitched('shed');high.surfaces[0].roof.height=19;assert.throws(()=>validatePlan(high),/cumbrera/);assert.equal(JSON.stringify(p),before);
+});
+test('gable walls reach the ridge while outside, disabled and roof-hole segments keep their height',()=>{
+ const p=validatePlan(pitched()),profile=wallRoofProfile(p,p.walls[0]);assert.ok(profile.some(s=>Math.abs(s.to-4)<1e-6));close(effectiveWallHeight(p,p.walls[0]),4);
+ const outside={...p.walls[0],a:{x:0,y:-1},b:{x:8,y:-1}};close(effectiveWallHeight(p,outside),2.8);
+ const off=structuredClone(p);off.surfaces[0].roof.fitWalls=false;close(effectiveWallHeight(off,off.walls[0]),2.8);
+ const partial=structuredClone(p);partial.walls[0]={...p.walls[0],a:{x:-2,y:3},b:{x:10,y:3}};
+ const q=addSurfaceHole(partial,'roof',holeRect(3,2,2,2),'roof'),w=q.walls[0];close(wallClearHeight(q,w,0,1),2.8);close(wallClearHeight(q,w,5.2,6.8),2.8);assert.ok(wallClearHeight(q,w,2.5,3)>2.8);
+ const shown=buildingVolumes(buildingFromPlan(p),options),hidden=buildingVolumes(buildingFromPlan(p),{...options,roofs:false});assert.deepEqual(shown[0].walls,hidden[0].walls);
+});
+test('openings must fit the entire sloping top, not just their centre; valid tall gable doors are supported',()=>{
+ const p=pitched();p.openings=[{id:'door',wallId:'w',kind:'door',width:1,t:.5,height:3.7}];assert.doesNotThrow(()=>validatePlan(p));
+ p.openings[0].height=3.9;assert.throws(()=>validatePlan(p),/altura/);
+ p.openings[0].height=3.7;p.openings[0].t=.2;assert.throws(()=>validatePlan(p),/altura/);
+ const b=addFloor(buildingFromPlan(pitched()),'Alta','blank');close(floorLevels(b)[1],4.2);
+});
+test('inclined roof meshes follow every plane and preserve through holes, including across the ridge',()=>{
+ for(const kind of ['shed','gable','halfHip','hip','perimeter'])for(const reverse of [false,true]){
+  const p=pitched(kind,kind==='perimeter'?0:25),surface=p.surfaces[0];if(reverse)surface.points.reverse();surface.holes=[{id:'h',name:'Hueco',target:'roof',points:holeRect(3,2,2,2)}];
+  const geometry=roofGeometry(surface.points,.2,plateHoles(surface,'roof'),roofPlanes(surface),0),mesh=new Mesh(geometry,new MeshBasicMaterial({side:DoubleSide}));mesh.updateMatrixWorld();
+  const ray=new Raycaster(new Vector3(4,30,3),new Vector3(0,-1,0));assert.equal(ray.intersectObject(mesh).length,0);
+  for(const [x,y] of [[1,1],[6,2],[2.8,4.8],[4,1]]){ray.set(new Vector3(x,30,y),new Vector3(0,-1,0));const hits=ray.intersectObject(mesh);assert.ok(hits.length);close(hits[0].point.y,roofHeightAt(surface,{x,y})+.2);}
+  geometry.dispose();mesh.material.dispose();
+ }
+});
+test('sloped wall meshes meet the roof on both faces and preserve window and door openings',()=>{
+ const p=pitched('gable',30);p.walls[0]={id:'w',a:{x:.2,y:.3},b:{x:7.8,y:5.7},thickness:.3};p.openings=[{id:'d',wallId:'w',kind:'door',t:.25,width:1}];
+ const [w]=wallVolumes(validatePlan(p)),meshes=w.solids.map(s=>{const mesh=new Mesh(wallSolidGeometry(w,s),new MeshBasicMaterial({side:DoubleSide}));mesh.updateMatrixWorld();return mesh;});
+ for(const x of [.5,w.length/2,w.length-.5])for(const z of [-.149,.149]){
+  const point=wallProfilePoint(p.walls[0],x,z),ray=new Raycaster(new Vector3(x,30,z),new Vector3(0,-1,0)),hits=meshes.flatMap(m=>ray.intersectObject(m)).sort((a,b)=>a.distance-b.distance);assert.ok(hits.length);close(hits[0].point.y,roofHeightAt(p.surfaces[0],point));
+ }
+ const ray=new Raycaster(new Vector3(w.length*.25,1,-1),new Vector3(0,0,1));assert.equal(meshes.flatMap(m=>ray.intersectObject(m)).length,0);
+ meshes.forEach(m=>{m.geometry.dispose();m.material.dispose();});
 });

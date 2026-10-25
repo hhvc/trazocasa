@@ -1,6 +1,6 @@
 # TrazoCasa
 
-Editor local de viviendas con planta 2D de estilo bosquejo y visualización 3D de plantas, muros, aberturas, losas y cubiertas planas. Vite + React + TypeScript, SVG, Three.js y coordenadas en metros.
+Editor local de viviendas con planta 2D de estilo bosquejo y visualización 3D de plantas, muros, aberturas, losas y cubiertas planas o inclinadas. Vite + React + TypeScript, SVG, Three.js y coordenadas en metros.
 
 ## Ejecutar
 
@@ -278,7 +278,7 @@ Mientras haya puntos pendientes aparece una barra con Guardar abierta, Guardar c
 - Puertas: altura inicial **2,10 m**, siempre desde el piso. Ventanas: altura inicial **1,20 m** y antepecho **0,90 m**. Los huecos se recortan del muro. Se rechazan cambios que dejen una abertura por encima de su pared; ajustar primero la abertura si se necesita bajar el muro.
 - Los cambios de altura participan de deshacer/rehacer, autoguardado, biblioteca, versiones y archivos `.trazocasa`. **Descargar proyecto editable** guarda el edificio completo; **Descargar vista PNG** exporta el encuadre actual, sin controles ni resaltado de selección.
 
-Se muestran juntas las plantas en sus coordenadas originales, con muros, huecos, losas y cubiertas planas. Las cuatro fachadas y el PNG respetan el alcance y la visibilidad elegidos. Elegir un elemento del edificio activa su planta; los elementos copiados en distintos pisos se seleccionan y editan de forma independiente.
+Se muestran juntas las plantas en sus coordenadas originales, con muros, huecos, losas y cubiertas planas o inclinadas. Las cuatro fachadas y el PNG respetan el alcance y la visibilidad elegidos. Elegir un elemento del edificio activa su planta; los elementos copiados en distintos pisos se seleccionan y editan de forma independiente.
 
 ### Niveles de piso
 
@@ -286,16 +286,37 @@ En **Niveles y opciones → Elemento → Nivel y altura general** se edita el ni
 
 El cálculo sigue el orden del selector, no el nombre de la planta. Cambiar alturas, espesores o eliminar una planta recalcula los niveles automáticos que le siguen. Los niveles manuales se mantienen fijos; se permiten desniveles y superposiciones, sin detección automática de interferencias.
 
-### Losas y cubiertas planas
+### Losas y techos
 
-1. Dibujar un contorno con **Superficie (S)** en la planta 2D. Puede ser rectangular o irregular, incluso cóncavo. No se genera una envolvente rectangular ni se rellenan patios por fuera del contorno.
-2. Seleccionarlo en 2D, o en **Ver 3D → Niveles y opciones → Elemento → Superficie**.
-3. Activar **Losa de piso**, **Cubierta plana**, o ambas, indicar espesores y pulsar **Aplicar losa y cubierta**. Cada espesor admite de 0,05 a 1 m. La losa termina al nivel de piso y se extiende hacia abajo; la cubierta empieza a su altura inferior indicada sobre ese piso (0,50 a 20 m) y se extiende hacia arriba.
-4. Modificar el contorno arrastrando sus vértices en 2D. Losa y cubierta siguen esa superficie; no siguen automáticamente los cambios de muros. Desactivar sus casillas y aplicar quita los volúmenes, conservando el contorno.
+El botón **Losas y techos**, al comienzo de las herramientas de planta y en la barra superior de 3D, abre el panel de creación y edición.
 
-**Ocultar losas / Ocultar cubiertas** son controles visuales temporales: permiten mirar el interior sin borrar elementos y también afectan al PNG. La altura de la cubierta es un dato propio; no se modifica automáticamente al cambiar alturas de muros. Las superficies conservan su medición en el resumen existente, que sigue sumando todos los contornos y no equivale a superficie construida.
+1. Elegir **Dibujar losa** o **Dibujar cubierta**. Marcar el perímetro sobre la planta, incluyendo el alero deseado. **Guardar contorno**, Enter o tocar el primer punto confirma y abre las propiedades; **Quitar punto** corrige y **Cancelar** descarta el borrador.
+2. También se puede elegir un **Contorno existente** en el panel. Una superficie puede tener losa, techo o ambos.
+3. Activar las casillas necesarias, indicar espesores de 0,05 a 1 m y pulsar **Aplicar losa y techo**. La losa termina al nivel del piso y se extiende hacia abajo. El techo se mide por su cara inferior y tiene espesor vertical constante.
+4. **Ver y editar contorno en planta** permite moverlo o cambiar sus vértices. Los elementos siguen el contorno; no siguen automáticamente los cambios de paredes. Desactivar una casilla y aplicar quita el volumen, conservando el contorno y sus huecos.
 
-Los niveles y las propiedades de losas/cubiertas se conservan en autoguardado, archivos, biblioteca, versiones y Deshacer/Rehacer. Duplicar una planta completa conserva sus contornos y propiedades pero calcula un nivel nuevo; copiar solo paredes no copia las losas.
+Formas de cubierta:
+
+- **Plano**: altura inferior constante.
+- **Un agua**: un plano inclinado. La orientación indica hacia dónde sube: 0° hacia la derecha del plano, 90° hacia abajo, 180° hacia la izquierda, 270° hacia arriba.
+- **Dos aguas**: pendientes opuestas con cumbrera centrada. La orientación gira el par de pendientes; la cumbrera es perpendicular a esa dirección.
+- **Tres aguas**: dos pendientes principales y una pendiente de cierre en un extremo. Girar 180° intercambia el extremo cerrado.
+- **Cuatro aguas**: dos pares de pendientes opuestas sobre el rectángulo envolvente orientado. En una planta cuadrada de pendientes iguales, la cumbrera termina en un punto.
+- **Varias aguas · una por lado**: faldones hacia adentro desde los lados del contorno convexo. Un pentágono genera cinco aguas; un hexágono, seis. Hasta 32 vértices; los lados colineales se fusionan.
+
+La pendiente admite 1 a 200 %, con coma o punto decimal: 30 % significa subir 30 cm por cada metro horizontal. La altura del alero inferior admite 0,50 a 20 m y la cumbrera no puede superar 20 m sobre el piso. Las formas de una a cuatro aguas usan las proyecciones extremas del contorno en la orientación elegida; el recorte respeta el perímetro real y los huecos, incluso si no es rectangular.
+
+Para techos compuestos o contornos en L/U, combinar varios paños con sus propias alturas, pendientes y orientaciones. No se calculan automáticamente limahoyas, uniones entre paños, drenajes ni encuentros estructurales. La opción por lados rechaza contornos cóncavos; no los transforma silenciosamente en otra forma. Las áreas de superficie y área neta siguen siendo proyecciones horizontales, no metraje real de material inclinado.
+
+### Muros bajo cubiertas
+
+**Ajustar muros a la cubierta** extiende o recorta la terminación hasta la cara inferior, incluyendo los hastiales triangulares. Se activa inicialmente al dibujar un techo nuevo y se conserva desactivado en cubiertas antiguas. Se considera cubierto el tramo cuyo eje está dentro o sobre el contorno y fuera de los huecos de techo. Si hay varios techos superpuestos con ajuste activo, se usa el inferior. Los tramos exteriores conservan su altura base.
+
+La altura original del muro se conserva. Desactivar el ajuste recupera la terminación horizontal. Las puertas y ventanas deben caber bajo todo el perfil: si un cambio las deja fuera, se rechaza sin perder el proyecto. Los niveles automáticos superiores usan la altura máxima efectiva de los muros; los niveles manuales permanecen fijos.
+
+**Ocultar losas / Ocultar cubiertas** solo cambia la visibilidad y la exportación PNG; ocultar el techo no deshace el ajuste de muros. La altura de la cubierta no cambia al editar la altura base de una pared. Los huecos se mantienen al inclinar el techo.
+
+Los niveles, pendientes, orientación, ajuste y huecos se conservan en autoguardado, archivos, biblioteca, versiones y Deshacer/Rehacer. Duplicar una planta completa conserva sus contornos y propiedades, calculando un nivel nuevo; copiar solo paredes no copia sus cubiertas ni losas.
 
 ### Huecos de escalera y patios
 
@@ -307,14 +328,16 @@ Los niveles y las propiedades de losas/cubiertas se conservan en autoguardado, a
 
 Cada contorno admite hasta 20 huecos, de 3 a 100 vértices. Deben quedar enteramente dentro del contorno y no pueden tocarlo, cruzarse, superponerse ni contener otros huecos. Mover la superficie mueve también sus huecos; cambiar un vértice exterior no los desplaza y se rechaza si los deja fuera.
 
-Los huecos solo recortan los elementos activados del contorno y el destino elegido. No modifican muros ni generan escaleras automáticamente. Para una escalera entre pisos, dibujar el hueco en la losa del piso superior. Para un patio que atraviesa varias plantas, agregar el recorte a cada losa o cubierta correspondiente.
+Los huecos solo recortan los elementos activados del contorno y el destino elegido. No perforan muros ni generan escaleras automáticamente. Si el techo ajusta muros, los tramos bajo sus huecos conservan la altura base. Para una escalera entre pisos, dibujar el hueco en la losa del piso superior. Para un patio que atraviesa varias plantas, agregar el recorte a cada losa o cubierta correspondiente.
 
 En 2D se muestran con borde discontinuo y nombre; el relleno de la superficie descuenta los huecos destinados a la losa. El inspector muestra **Losa neta** y **Cubierta neta**, descontando sus huecos respectivos. Las etiquetas de superficie y el resumen general conservan el área del contorno completo. Los huecos se conservan en archivos locales, autoguardado y copias de plantas completas; el visor 3D y la exportación PNG respetan los recortes.
 
-Pendientes: pendientes de techo, mobiliario 3D y cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
+Pendientes: encuentros automáticos entre paños, mobiliario 3D y cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
 
 La visualización se procesa íntegramente en el navegador. Three.js se descarga como módulo separado al abrir el visor; requiere WebGL 2. Si no está disponible, se informa el problema y se puede continuar en 2D. El motor dibuja cuando cambia la escena o la cámara, sin una animación continua.
 
-Se conserva el formato v7 del edificio y v6 de cada planta, agregando campos opcionales para alturas, antepechos, niveles de piso, losas, cubiertas y huecos interiores. Los archivos anteriores abren con las alturas iniciales indicadas, sin cambiar sus coordenadas. Versiones anteriores del editor pueden descartar estos campos al guardar. Las antiguas vistas manuales ya no tienen acceso desde la interfaz; sus datos existentes se conservan al abrir y guardar proyectos, para evitar perder dibujos anteriores.
+Se conserva el formato v7 del edificio y v6 de cada planta, agregando campos opcionales para alturas, antepechos, niveles de piso, losas, cubiertas (forma, pendiente, orientación y ajuste de muros) y huecos interiores. Los archivos anteriores abren con las alturas iniciales indicadas, sin cambiar sus coordenadas. Versiones anteriores del editor pueden descartar estos campos al guardar. Las antiguas vistas manuales ya no tienen acceso desde la interfaz; sus datos existentes se conservan al abrir y guardar proyectos, para evitar perder dibujos anteriores.
 
 Las pruebas automatizadas cubren compatibilidad, persistencia, alturas inválidas, conservación de propiedades al editar/copiar muros y geometría de huecos en muros rectos o diagonales, niveles de varias plantas, selección independiente y extrusión de contornos cóncavos en ambos sentidos, recortes interiores con distintas orientaciones, validación de huecos, edición de vértices, movimiento y áreas netas.
+
+Las pruebas de techos cubren una a múltiples aguas, orientación, contornos en ambos sentidos, límites de pendiente y altura, persistencia, hastiales, aberturas bajo pendientes, recortes atravesando cumbreras y geometría del espesor de los muros.

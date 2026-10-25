@@ -9,8 +9,8 @@ import {LevelControls,SlabControls} from './LevelControls';
 import {distance,floorLevels,openingHeight,openingSill,surfaceArea,validatePlan,wallHeight,wallThickness} from './model';
 import type {Building,Plan,SurfaceHole} from './model';
 import './model3d.css';
-export type ModelPanelProps={building:Building;plan:Plan;onChange:(plan:Plan)=>void;onLevel:(elevation?:number)=>void;onSurface:()=>void;onHole:(surfaceId:string,target:SurfaceHole['target'])=>void;onFloor:(id:string)=>void;onClose:()=>void;onUndo:()=>void;onRedo:()=>void;canUndo:boolean;canRedo:boolean;onSave:()=>void;saved:boolean};
-export default function ModelPanel({building,plan,onChange,onLevel,onSurface,onHole,onFloor,onClose,onUndo,onRedo,canUndo,canRedo,onSave,saved}:ModelPanelProps){
+export type ModelPanelProps={building:Building;plan:Plan;onChange:(plan:Plan)=>void;onLevel:(elevation?:number)=>void;onSurface:()=>void;onPlates:()=>void;onHole:(surfaceId:string,target:SurfaceHole['target'])=>void;onFloor:(id:string)=>void;onClose:()=>void;onUndo:()=>void;onRedo:()=>void;canUndo:boolean;canRedo:boolean;onSave:()=>void;saved:boolean};
+export default function ModelPanel({building,plan,onChange,onLevel,onSurface,onPlates,onHole,onFloor,onClose,onUndo,onRedo,canUndo,canRedo,onSave,saved}:ModelPanelProps){
  const host=useRef<HTMLDivElement>(null),api=useRef<ReturnType<typeof createModelScene>|undefined>(undefined);
  const [mode,setMode]=useState<ModelView>('3d'),[selection,setSelection]=useState<ModelSelection|null>(null),[panel,setPanel]=useState(false),[error,setError]=useState(''),[fatal,setFatal]=useState(''),[ready,setReady]=useState(false),[busy,setBusy]=useState(false);
  const [scope,setScope]=useState<ModelOptions['scope']>('all'),[slabs,setSlabs]=useState(true),[roofs,setRoofs]=useState(true);
@@ -48,7 +48,7 @@ export default function ModelPanel({building,plan,onChange,onLevel,onSurface,onH
  <header className="model-bar"><strong>TrazoCasa · 3D</strong>
  <select aria-label="Alcance del modelo" value={scope} onChange={e=>setScope(e.target.value as ModelOptions['scope'])}><option value="all">Edificio completo</option><option value="active">Solo planta activa</option></select>
  <select aria-label="Planta del modelo 3D" value={floor.id} onChange={e=>onFloor(e.target.value)}>{building.floors.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</select>
- <span className="model-save">{saved?'Guardado local':'Descargá una copia: guardado local pendiente'}</span><button aria-expanded={panel} onClick={()=>setPanel(p=>!p)}>Niveles y opciones</button><button autoFocus onClick={onClose}>Editar planta</button></header>
+ <span className="model-save">{saved?'Guardado local':'Descargá una copia: guardado local pendiente'}</span><button onClick={onPlates}>Losas y techos</button><button aria-expanded={panel} onClick={()=>setPanel(p=>!p)}>Niveles y opciones</button><button autoFocus onClick={onClose}>Editar planta</button></header>
  <nav className="model-bar model-modes" aria-label="Vistas del modelo">{modelViews.map(v=><button key={v.id} disabled={!ready||!!fatal} aria-pressed={mode===v.id} onClick={()=>view(v.id)}>{v.name}</button>)}<span className="model-separator"/><button disabled={!canUndo} onClick={onUndo}>Deshacer</button><button disabled={!canRedo} onClick={onRedo}>Rehacer</button><button disabled={!ready||!!fatal} onClick={()=>api.current?.fit()}>Encuadrar</button><button disabled={!ready||!!fatal} aria-label="Alejar modelo" onClick={()=>api.current?.zoom(1/1.2)}>−</button><button disabled={!ready||!!fatal} aria-label="Acercar modelo" onClick={()=>api.current?.zoom(1.2)}>+</button></nav>
  <div className="model-stage"><div className="model-canvas" ref={host}/>
  {!hasGeometry&&!fatal&&<div className="model-empty"><strong>Empezá por las paredes</strong><p>Dibujá muros y aberturas, o una superficie para crear su losa.</p><button onClick={onClose}>Dibujar planta</button></div>}
@@ -62,7 +62,7 @@ export default function ModelPanel({building,plan,onChange,onLevel,onSurface,onH
  <GeneralHeightControls key={floor.id+'-'+(plan.wallHeight??2.8)} plan={plan} onChange={wallHeight=>change({...plan,wallHeight})}/>
  <p>Para crear losas y cubiertas, dibujá una superficie en 2D y elegila en Elemento.</p><button onClick={onSurface}>Dibujar contorno en planta</button>
  </>}
- <div className="model-files"><button onClick={onSave}>Descargar proyecto editable</button><button disabled={busy||!ready||!!fatal||!hasGeometry} onClick={()=>void png()}>{busy?'Preparando imagen…':'Descargar vista PNG'}</button></div><small>Muros, aberturas, losas y cubiertas planas. Las alturas se miden desde el piso de cada planta. Los huecos se dibujan en la planta y recortan el elemento elegido. Los contornos no siguen los muros automáticamente.</small>
+ <div className="model-files"><button onClick={onSave}>Descargar proyecto editable</button><button disabled={busy||!ready||!!fatal||!hasGeometry} onClick={()=>void png()}>{busy?'Preparando imagen…':'Descargar vista PNG'}</button></div><small>Muros, aberturas, losas y cubiertas. Las alturas se miden desde el piso de cada planta. Los huecos se dibujan en la planta y recortan el elemento elegido. Los contornos no siguen los muros automáticamente.</small>
  </aside>}
  </div>
  {error&&<div className="model-error" role="alert">{error}<button aria-label="Cerrar error" onClick={()=>setError('')}>×</button></div>}

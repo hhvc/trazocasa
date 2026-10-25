@@ -1,7 +1,10 @@
 export type Point = { x: number; y: number };
 export type Projection = {id:string;name:string;points:Point[];closed:boolean};
 export type Slab = { thickness: number };
-export type FlatRoof = Slab & { height: number };
+export type RoofShape = {kind:'shed'|'gable'|'halfHip'|'hip'|'perimeter';slope:number;direction:number};
+export type FlatRoof = Slab & { height: number; shape?:RoofShape; fitWalls?:boolean };
+export type RoofPlane = {a:number;b:number;c:number};
+export type WallRoofSegment = {from:number;to:number;plane:RoofPlane;planes?:RoofPlane[]};
 export type SurfaceHole = {id:string;name:string;target:'slab'|'roof'|'both';points:Point[]};
 export type Surface = { holes?: SurfaceHole[]; slab?: Slab; roof?: FlatRoof; id: string; name: string; points: Point[] };
 export type Dimension = { id: string; a: Point; b: Point; offset: number };
@@ -99,8 +102,18 @@ export function validatePlan(value: unknown): Plan {
       }
     }
     for(const plate of [s.slab,s.roof])if(plate!==undefined&&(!plate||!finite(plate.thickness)||plate.thickness<.05||plate.thickness>1))throw new Error('El espesor de losa o cubierta debe estar entre 0,05 y 1 m.');
-    if(s.roof!==undefined&&(!finite(s.roof.height)||s.roof.height<.5||s.roof.height>20))throw new Error('La altura inferior de la cubierta debe estar entre 0,50 y 20 m.');
+    if(s.roof!==undefined){
+      if(!finite(s.roof.height)||s.roof.height<.5||s.roof.height>20)throw new Error('La altura inferior de la cubierta debe estar entre 0,50 y 20 m.');
+      if(s.roof.fitWalls!==undefined&&typeof s.roof.fitWalls!=='boolean')throw new Error('Revisá el ajuste de muros a la cubierta.');
+      const shape=s.roof.shape;
+      if(shape!==undefined){
+        if(!shape||!['shed','gable','halfHip','hip','perimeter'].includes(shape.kind)||!finite(shape.slope)||shape.slope<1||shape.slope>200||!finite(shape.direction)||shape.direction<0||shape.direction>=360)throw new Error('Revisá el tipo de techo, la pendiente (1 a 200 %) y la orientación (0 a 359°).');
+        if(shape.kind==='perimeter'&&(!convexContour(s.points)||s.points.length>32))throw new Error('El techo por lados necesita un contorno convexo de hasta 32 vértices. Para formas en L o U, combiná varios paños.');
+        if(roofHeightRange(s)[1]>20+1e-8)throw new Error('La cumbrera supera 20 m. Reducí la pendiente o la altura del alero.');
+      }
+    }
   }
+  if(surfaces.some(s=>s.roof?.fitWalls))for(const w of p.walls)if(wallClearHeight({...p,surfaces} as Plan,w,0,distance(w.a,w.b))<.1)throw new Error('La cubierta deja un muro por debajo de 10 cm. Subí el alero o reducí la pendiente.');
   if(p.reference!==undefined){const r=p.reference;if(!r||typeof r.data!=='string'||r.data.length>400_000||!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(r.data)||typeof r.name!=='string'||r.name.length>100||!point(r)||!finite(r.width)||!finite(r.height)||r.width<.1||r.height<.1||r.width>100||r.height>100||!finite(r.opacity)||r.opacity<0||r.opacity>1||typeof r.visible!=='boolean')throw new Error('La imagen de referencia no es válida.');}
   const checked: Plan = { ...p, version: 6, surfaces, dimensions, furniture, openings: [] };
   for (const o of p.openings) {
@@ -108,7 +121,7 @@ export function validatePlan(value: unknown): Plan {
     if (!w || !finite(o.t) || !finite(o.width) || !['door', 'window'].includes(o.kind)) throw new Error('El proyecto contiene aberturas inválidas.');
     if (o.kind === 'door' && ((o.hinge !== undefined && !['start', 'end'].includes(o.hinge)) || (o.swing !== undefined && !['negative', 'positive'].includes(o.swing)))) throw new Error('El sentido de apertura de una puerta no es válido.');
     if((o.height!==undefined&&(!finite(o.height)||o.height<.2||o.height>20))||(o.sill!==undefined&&(!finite(o.sill)||o.sill<0||o.sill>20))||(o.kind==='door'&&o.sill!==undefined&&o.sill!==0))throw new Error('Revisá la altura y el antepecho de la abertura.');
-    if(openingSill(o)+openingHeight(o)>wallHeight(p as Plan,w)+1e-9)throw new Error('Una abertura supera la altura de su muro. Ajustá su altura o antepecho primero.');
+    if(openingSill(o)+openingHeight(o)>wallClearHeight({...p,surfaces} as Plan,w,o.t*distance(w.a,w.b)-o.width/2,o.t*distance(w.a,w.b)+o.width/2)+1e-9)throw new Error('Una abertura supera la altura de su muro. Ajustá su altura o antepecho primero.');
     const t = fitOpening(checked, w, o.t, o.width);
     if (t === null || Math.abs(t - o.t) > .00001) throw new Error('Hay aberturas superpuestas o fuera de una pared.');
     checked.openings.push(o);
@@ -119,7 +132,7 @@ export function validatePlan(value: unknown): Plan {
     if (f.kind === 'roundCoffeeTable' && f.width !== f.depth) throw new Error('La mesa redonda debe tener un único diámetro.');
     if (!point(f) || !furnitureCatalog.some(item => item.kind === f.kind) || !finite(f.width) || !finite(f.depth) || f.width < .2 || f.width > 10 || f.depth < .2 || f.depth > 10 || !finite(f.rotation) || f.rotation < 0 || f.rotation >= 360) throw new Error('El proyecto contiene muebles inválidos.');
   }
-  return { ...(p.wallHeight!==undefined?{wallHeight:p.wallHeight}:{}), ...(p.projections?{projections:projections.map(r=>({...r,points:r.points.map(p=>({...p}))}))}:{}), ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y})),...(s.holes!==undefined?{holes:s.holes.map(h=>({id:h.id,name:h.name,target:h.target,points:h.points.map(p=>({x:p.x,y:p.y}))}))}:{}),...(s.slab?{slab:{thickness:s.slab.thickness}}:{}),...(s.roof?{roof:{thickness:s.roof.thickness,height:s.roof.height}}:{})})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}), ...(w.height!==undefined?{height:w.height}:{}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.height!==undefined?{height:o.height}:{}), ...(o.sill!==undefined?{sill:o.sill}:{}), ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
+  return { ...(p.wallHeight!==undefined?{wallHeight:p.wallHeight}:{}), ...(p.projections?{projections:projections.map(r=>({...r,points:r.points.map(p=>({...p}))}))}:{}), ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y})),...(s.holes!==undefined?{holes:s.holes.map(h=>({id:h.id,name:h.name,target:h.target,points:h.points.map(p=>({x:p.x,y:p.y}))}))}:{}),...(s.slab?{slab:{thickness:s.slab.thickness}}:{}),...(s.roof?{roof:{thickness:s.roof.thickness,height:s.roof.height,...(s.roof.fitWalls!==undefined?{fitWalls:s.roof.fitWalls}:{}),...(s.roof.shape?{shape:{...s.roof.shape}}:{})}}:{})})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}), ...(w.height!==undefined?{height:w.height}:{}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.height!==undefined?{height:o.height}:{}), ...(o.sill!==undefined?{sill:o.sill}:{}), ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
 }
 export function sample(): Plan {
   const wall = (id: string, x: number, y: number, x2: number, y2: number): Wall => ({ id, a: { x, y }, b: { x: x2, y: y2 } });
@@ -438,7 +451,7 @@ export function floorLevels(building: Building): number[] {
   const levels:number[]=[];
   building.floors.forEach((floor,i)=>{
     const previous=building.floors[i-1];
-    const height=previous?(previous.plan.walls.length?Math.max(...previous.plan.walls.map(w=>wallHeight(previous.plan,w))):previous.plan.wallHeight??2.8):0;
+    const height=previous?(previous.plan.walls.length?Math.max(...previous.plan.walls.map(w=>effectiveWallHeight(previous.plan,w))):previous.plan.wallHeight??2.8):0;
     const thickness=Math.max(.2,...floor.plan.surfaces.map(s=>s.slab?.thickness??0));
     levels.push(floor.elevation??(i?levels[i-1]+height+thickness:0));
   });
@@ -483,4 +496,84 @@ export function resizeSurfaceHole(hole:SurfaceHole,width:number,depth:number):Su
  if(!Number.isFinite(width)||!Number.isFinite(depth)||width<.1||depth<.1||width>100||depth>100)throw new Error('El ancho y largo del hueco deben estar entre 0,10 y 100 m.');
  const xs=hole.points.map(p=>p.x),ys=hole.points.map(p=>p.y),x=Math.min(...xs),y=Math.min(...ys),w=Math.max(...xs)-x,d=Math.max(...ys)-y;
  return {...hole,points:hole.points.map(p=>({x:x+(p.x-x)*width/w,y:y+(p.y-y)*depth/d}))};
+}
+
+
+/** Affine underside planes. The lower envelope creates ridges without a fixed face count. */
+export function roofPlanes(surface:Surface):RoofPlane[]{
+ const roof=surface.roof;if(!roof)return [];
+ const shape=roof.shape;if(!shape)return [{a:0,b:0,c:roof.height}];
+ const pitch=shape.slope/100,angle=shape.direction*Math.PI/180,u={x:Math.cos(angle),y:Math.sin(angle)},v={x:-u.y,y:u.x};
+ const plane=(normal:Point,anchor:Point)=>({a:pitch*normal.x,b:pitch*normal.y,c:roof.height-pitch*(normal.x*anchor.x+normal.y*anchor.y)});
+ let planes:RoofPlane[]=[];
+ if(shape.kind==='perimeter'){
+  const area=surface.points.reduce((sum,p,i)=>{const q=surface.points[(i+1)%surface.points.length];return sum+p.x*q.y-q.x*p.y;},0),sign=area>0?1:-1;
+  planes=surface.points.map((p,i)=>{const q=surface.points[(i+1)%surface.points.length],length=distance(p,q);return plane({x:sign*(p.y-q.y)/length,y:sign*(q.x-p.x)/length},p);});
+ }else{
+  const bound=(n:Point)=>Math.min(...surface.points.map(p=>p.x*n.x+p.y*n.y));
+  const at=(n:Point)=>plane(n,{x:n.x*bound(n),y:n.y*bound(n)});
+  planes=[at(u)];
+  if(shape.kind!=='shed')planes.push(at({x:-u.x,y:-u.y}));
+  if(shape.kind==='halfHip'||shape.kind==='hip')planes.push(at(v));
+  if(shape.kind==='hip')planes.push(at({x:-v.x,y:-v.y}));
+ }
+ return planes.filter((p,i)=>!planes.slice(0,i).some(q=>Math.abs(p.a-q.a)+Math.abs(p.b-q.b)+Math.abs(p.c-q.c)<1e-9));
+}
+export const planeHeight=(plane:RoofPlane,point:Point)=>plane.a*point.x+plane.b*point.y+plane.c;
+export const roofHeightAt=(surface:Surface,point:Point)=>Math.min(...roofPlanes(surface).map(p=>planeHeight(p,point)));
+export function convexContour(points:Point[]):boolean{
+ let sign=0;
+ for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length],c=points[(i+2)%points.length],cross=(b.x-a.x)*(c.y-b.y)-(b.y-a.y)*(c.x-b.x);if(Math.abs(cross)<1e-8)continue;if(sign&&Math.sign(cross)!==sign)return false;sign=Math.sign(cross);}
+ return !!sign;
+}
+/** Keep the portion a*x+b*y+c <= 0; also used for roof-plane cells. */
+export function clipContour(points:Point[],plane:RoofPlane):Point[]{
+ const result:Point[]=[];
+ for(let i=0;i<points.length;i++){
+  const a=points[i],b=points[(i+1)%points.length],da=planeHeight(plane,a),db=planeHeight(plane,b);
+  if(da<=1e-9)result.push(a);
+  if((da< -1e-9&&db>1e-9)||(da>1e-9&&db< -1e-9)){const t=da/(da-db);result.push({x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)});}
+ }
+ return result;
+}
+export function roofHeightRange(surface:Surface):[number,number]{
+ const planes=roofPlanes(surface),heights:number[]=[];
+ // Clipping a bounding rectangle also bounds a concave contour conservatively.
+ const xs=surface.points.map(p=>p.x),ys=surface.points.map(p=>p.y),x=Math.min(...xs),y=Math.min(...ys),X=Math.max(...xs),Y=Math.max(...ys);
+ for(const p of planes){let cell=[{x,y},{x:X,y},{x:X,y:Y},{x,y:Y}];for(const q of planes){if(q===p)continue;cell=clipContour(cell,{a:p.a-q.a,b:p.b-q.b,c:p.c-q.c});}heights.push(...cell.map(v=>planeHeight(p,v)));}
+ return [Math.min(...surface.points.map(p=>roofHeightAt(surface,p))),Math.max(...heights)];
+}
+export function insideOrOnContour(point:Point,points:Point[]):boolean{
+ return pointInsideContour(point,points)||points.some((a,i)=>{const b=points[(i+1)%points.length];return project(point,{id:'edge',a,b}).distance<1e-7;});
+}
+export function wallRoofProfile(plan:Plan,wall:Wall):WallRoofSegment[]{
+ const length=distance(wall.a,wall.b),dx=(wall.b.x-wall.a.x)/length,dy=(wall.b.y-wall.a.y)/length;
+ const at=(x:number)=>({x:wall.a.x+dx*x,y:wall.a.y+dy*x});
+ const roofs=plan.surfaces.filter(s=>s.roof?.fitWalls&&Math.max(...s.points.map(p=>p.x))>=Math.min(wall.a.x,wall.b.x)-1e-7&&Math.min(...s.points.map(p=>p.x))<=Math.max(wall.a.x,wall.b.x)+1e-7&&Math.max(...s.points.map(p=>p.y))>=Math.min(wall.a.y,wall.b.y)-1e-7&&Math.min(...s.points.map(p=>p.y))<=Math.max(wall.a.y,wall.b.y)+1e-7).map(surface=>({surface,planes:roofPlanes(surface)}));
+ if(!roofs.length)return [{from:0,to:length,plane:{a:0,b:0,c:wallHeight(plan,wall)}}];
+ const cuts=[0,length];
+ const crossing=(p:RoofPlane)=>{const a=planeHeight(p,wall.a),b=planeHeight(p,wall.b);if(Math.abs(a-b)>1e-10){const x=length*a/(a-b);if(x>1e-7&&x<length-1e-7)cuts.push(x);}};
+ for(const {surface} of roofs)for(const path of [surface.points,...plateHoles(surface,'roof')])for(let i=0;i<path.length;i++){
+  const a=path[i],b=path[(i+1)%path.length];crossing({a:a.y-b.y,b:b.x-a.x,c:a.x*b.y-b.x*a.y});
+ }
+ const planes=roofs.flatMap(r=>r.planes);
+ for(let i=0;i<planes.length;i++)for(let j=i+1;j<planes.length;j++)crossing({a:planes[i].a-planes[j].a,b:planes[i].b-planes[j].b,c:planes[i].c-planes[j].c});
+ const sorted=cuts.sort((a,b)=>a-b).filter((x,i,a)=>!i||x-a[i-1]>1e-7),segments:WallRoofSegment[]=[];
+ for(let i=1;i<sorted.length;i++){
+  const from=sorted[i-1],to=sorted[i],mid=at((from+to)/2);
+  const candidates=roofs.filter(({surface:s})=>insideOrOnContour(mid,s.points)&&!plateHoles(s,'roof').some(h=>insideOrOnContour(mid,h))).flatMap(r=>r.planes);
+  const plane=candidates.length?candidates.reduce((a,b)=>planeHeight(a,mid)<planeHeight(b,mid)?a:b):{a:0,b:0,c:wallHeight(plan,wall)};
+  segments.push({from,to,plane,...(candidates.length?{planes:candidates}:{})});
+ }
+ return segments;
+}
+export function wallProfilePoint(wall:Wall,along:number,across=0):Point{
+ const length=distance(wall.a,wall.b),dx=(wall.b.x-wall.a.x)/length,dy=(wall.b.y-wall.a.y)/length;
+ return {x:wall.a.x+dx*along-dy*across,y:wall.a.y+dy*along+dx*across};
+}
+export function wallClearHeight(plan:Plan,wall:Wall,from:number,to:number):number{
+ return Math.min(...wallRoofProfile(plan,wall).filter(s=>s.to>from+1e-8&&s.from<to-1e-8).flatMap(s=>[Math.max(from,s.from),Math.min(to,s.to)].flatMap(x=>[-wallThickness(wall)/2,wallThickness(wall)/2].map(z=>Math.min(...(s.planes??[s.plane]).map(p=>planeHeight(p,wallProfilePoint(wall,x,z))))))));
+}
+export function effectiveWallHeight(plan:Plan,wall:Wall):number{
+ return Math.max(...wallRoofProfile(plan,wall).flatMap(s=>[s.from,s.to].flatMap(x=>[-wallThickness(wall)/2,wallThickness(wall)/2].map(z=>planeHeight(s.plane,wallProfilePoint(wall,x,z))))));
 }
