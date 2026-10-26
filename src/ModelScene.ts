@@ -74,6 +74,8 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
   furnitureScene=addFurnitureScene(group,next);selectable.push(...furnitureScene.selectable);
   scene.add(group);group.updateMatrixWorld(true);
   bounds=new THREE.Box3().setFromObject(group);
+  // An elevated object still needs its floor as the grid and framing reference.
+  if(!bounds.isEmpty())for(const floor of next)if(floor.furniture.length)bounds.min.y=Math.min(bounds.min.y,floor.elevation);
   if(bounds.isEmpty())bounds=new THREE.Box3(new THREE.Vector3(-1,0,-1),new THREE.Vector3(9,3,7));
   const extent=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3()),gridSize=Math.max(10,Math.ceil(Math.max(extent.x,extent.z)+4));
   grid=new THREE.GridHelper(gridSize,Math.min(100,gridSize),0xb7c6b7,0xe1e5db);grid.position.set(center.x,bounds.min.y-.02,center.z);grid.visible=mode==='3d';scene.add(grid);setSelected(selected);
