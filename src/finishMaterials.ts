@@ -7,9 +7,9 @@ export function finishPixels(finish:Exclude<FinishKind,'paint'>,size=128){
   const u=x/size,v=y/size,noise=((x*73+y*151+(x*y*31))%97)/96;
   let value=255;
   if(finish==='wood'){
-   const grain=Math.sin(tau*(u*14+.12*Math.sin(v*tau)+.06*Math.sin(v*tau*3)));
-   value=237+grain*9+noise*5;
-   if(x<2||y<1)value=208;
+   const board=Math.floor(u*5),grain=Math.sin(tau*(u*35+.12*Math.sin(v*tau)+.06*Math.sin(v*tau*3)));
+   value=235+grain*7+noise*5+(board%3)*2;
+   if((u*5)%1<.035||(v+(board%2)*.5)%1<.012)value=208;
   }else if(finish==='tile')value=x<3||y<3?203:249+noise*5;
   else value=232+noise*16+5*Math.sin(u*tau*3)*Math.cos(v*tau*2);
   const i=(y*size+x)*4;pixels[i]=pixels[i+1]=pixels[i+2]=Math.max(0,Math.min(255,Math.round(value)));pixels[i+3]=255;
