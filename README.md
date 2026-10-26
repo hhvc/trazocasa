@@ -332,7 +332,7 @@ Los huecos solo recortan los elementos activados del contorno y el destino elegi
 
 En 2D se muestran con borde discontinuo y nombre; el relleno de la superficie descuenta los huecos destinados a la losa. El inspector muestra **Losa neta** y **Cubierta neta**, descontando sus huecos respectivos. Las etiquetas de superficie y el resumen general conservan el área del contorno completo. Los huecos se conservan en archivos locales, autoguardado y copias de plantas completas; el visor 3D y la exportación PNG respetan los recortes.
 
-Pendientes: encuentros automáticos entre paños, mobiliario 3D y cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
+Pendientes: encuentros automáticos entre paños, escaleras 3D y cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
 
 La visualización se procesa íntegramente en el navegador. Three.js se descarga como módulo separado al abrir el visor; requiere WebGL 2. Si no está disponible, se informa el problema y se puede continuar en 2D. El motor dibuja cuando cambia la escena o la cámara, sin una animación continua.
 
@@ -341,3 +341,16 @@ Se conserva el formato v7 del edificio y v6 de cada planta, agregando campos opc
 Las pruebas automatizadas cubren compatibilidad, persistencia, alturas inválidas, conservación de propiedades al editar/copiar muros y geometría de huecos en muros rectos o diagonales, niveles de varias plantas, selección independiente y extrusión de contornos cóncavos en ambos sentidos, recortes interiores con distintas orientaciones, validación de huecos, edición de vértices, movimiento y áreas netas.
 
 Las pruebas de techos cubren una a múltiples aguas, orientación, contornos en ambos sentidos, límites de pendiente y altura, persistencia, hastiales, aberturas bajo pendientes, recortes atravesando cumbreras y geometría del espesor de los muros.
+
+### Mobiliario en 3D
+
+Los 29 objetos del catálogo (excepto escaleras y descansos) tienen volúmenes sencillos: muebles, sanitarios, electrodomésticos, vehículos, parrilla, fogonero y vegetación. Se respetan la posición, el ancho, el fondo, el giro y la planta del objeto existente. No hace falta volver a colocarlos.
+
+- En **Modelo 3D**, pulsar un objeto o elegirlo en **Niveles y opciones → Elemento**. **Altura total 3D** escala su volumen vertical; **Elevación sobre el piso** permite levantarlo, por ejemplo para ubicar un televisor sobre un mueble. También se editan desde los detalles del objeto en 2D.
+- **Editar mueble en planta** vuelve al objeto seleccionado para cambiar posición, medidas o giro. Los grupos se conservan.
+- **Ocultar muebles / Mostrar muebles** afecta el visor y la exportación PNG, sin eliminar objetos ni modificar el plano. El visor admite proyectos que contienen solo muebles.
+- La altura admite 0,10 a 20 m y la elevación 0 a 20 m, con coma o punto decimal. Las alturas iniciales son orientativas; **Restablecer alturas iniciales** recupera el valor del catálogo y la base sobre el piso.
+
+Las alturas y elevaciones se guardan como campos opcionales en el formato existente y admiten Deshacer/Rehacer, copias de plantas y archivos locales. No cambian los niveles de piso. Las escaleras y descansos siguen siendo símbolos 2D hasta definir su desarrollo vertical. No se calculan colisiones, encuentros entre muebles ni dimensiones de fabricantes.
+
+Las formas comparten geometrías y materiales mediante instancias; no se descargan modelos externos y el renderizado permanece en el navegador. Pruebas: cobertura del catálogo, límites de los volúmenes, orientación, selección entre pisos, persistencia, visibilidad y lotes de 500 objetos.

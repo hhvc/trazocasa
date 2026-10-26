@@ -23,7 +23,7 @@ export function wallVolumes(plan:Plan) {
 
 export type ModelSelection = {floorId:string; elementId:string};
 export const modelSelectionKey=(selection:ModelSelection|null)=>selection?JSON.stringify([selection.floorId,selection.elementId]):'';
-export type ModelOptions={scope:'all'|'active';slabs:boolean;roofs:boolean};
+export type ModelOptions={scope:'all'|'active';slabs:boolean;roofs:boolean;furniture?:boolean};
 export function buildingVolumes(building:Building,options:ModelOptions){
  const levels=floorLevels(building);
  return building.floors.flatMap((floor,index)=>{
@@ -35,7 +35,7 @@ export function buildingVolumes(building:Building,options:ModelOptions){
     ...(surface.roof&&options.roofs?[{...common,kind:'roof' as const,planes:roofPlanes(surface),holes:plateHoles(surface,'roof'),bottom:surface.roof.height,top:surface.roof.height+surface.roof.thickness}]:[]),
    ];
   });
-  return [{id:floor.id,name:floor.name,elevation:levels[index],walls:wallVolumes(floor.plan),plates}];
+  return [{id:floor.id,name:floor.name,elevation:levels[index],walls:wallVolumes(floor.plan),plates,furniture:options.furniture===false?[]:floor.plan.furniture.filter(f=>f.kind!=='stairs'&&f.kind!=='stairLanding')}];
  });
 }
 export type BuildingVolumes=ReturnType<typeof buildingVolumes>;

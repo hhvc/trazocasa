@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {addFurnitureScene,selectionFromIntersection} from './FurnitureScene';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {plateGeometry,roofGeometry,wallSolidGeometry} from './plateGeometry';
 import {modelSelectionKey} from './model3d';
@@ -7,7 +8,7 @@ export type ModelView='3d'|'front'|'back'|'left'|'right';
 export const modelViews:{id:ModelView;name:string}[]=[{id:'3d',name:'3D'},{id:'front',name:'Frente'},{id:'back',name:'Contrafrente'},{id:'left',name:'Lateral izquierdo'},{id:'right',name:'Lateral derecho'}];
 function disposeGroup(group:THREE.Object3D){
  const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();
- group.traverse(object=>{const mesh=object as THREE.Mesh;if(mesh.geometry)geometries.add(mesh.geometry);if(mesh.material)for(const m of Array.isArray(mesh.material)?mesh.material:[mesh.material])materials.add(m);});
+ group.traverse(object=>{const mesh=object as THREE.Mesh;if((mesh as THREE.InstancedMesh).isInstancedMesh)(mesh as THREE.InstancedMesh).dispose();if(mesh.geometry)geometries.add(mesh.geometry);if(mesh.material)for(const m of Array.isArray(mesh.material)?mesh.material:[mesh.material])materials.add(m);});
  geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());
 }
 export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSelect:(selection:ModelSelection|null)=>void,onError:(message:string)=>void){
@@ -20,11 +21,12 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
  const controls=new OrbitControls(camera,canvas);controls.enableDamping=false;controls.maxPolarAngle=Math.PI*.49;controls.minZoom=.1;controls.maxZoom=30;controls.screenSpacePanning=true;
  let group=new THREE.Group(),grid:THREE.GridHelper|undefined,mode:ModelView='3d',selected:ModelSelection|null=null,span=10,lastModel:BuildingVolumes|undefined,closed=false;
  let bounds=new THREE.Box3(new THREE.Vector3(-1,0,-1),new THREE.Vector3(9,3,7));
+ let furnitureScene:ReturnType<typeof addFurnitureScene>|undefined;
  const selectable:THREE.Object3D[]=[];
  const colors=new Map<string,{material:THREE.MeshStandardMaterial|THREE.LineBasicMaterial;base:string}[]>();
  const render=()=>{if(!closed)renderer.render(scene,camera);};controls.addEventListener('change',render);
  const remember=(id:string,material:THREE.MeshStandardMaterial|THREE.LineBasicMaterial,base:string)=>{const list=colors.get(id)??[];list.push({material,base});colors.set(id,list);};
- function setSelected(selection:ModelSelection|null){selected=selection;const id=modelSelectionKey(selection);colors.forEach((list,key)=>list.forEach(({material,base})=>material.color.set(key===id?'#c18a50':base)));render();}
+ function setSelected(selection:ModelSelection|null){selected=selection;const id=modelSelectionKey(selection);colors.forEach((list,key)=>list.forEach(({material,base})=>material.color.set(key===id?'#c18a50':base)));furnitureScene?.setSelected(selection);render();}
  function size(){const width=Math.max(1,host.clientWidth),height=Math.max(1,host.clientHeight),aspect=width/height;renderer.setSize(width,height,false);camera.left=-span*aspect/2;camera.right=span*aspect/2;camera.top=span/2;camera.bottom=-span/2;camera.updateProjectionMatrix();render();}
  function fit(){
   const center=bounds.getCenter(new THREE.Vector3()),diagonal=Math.max(3,bounds.getSize(new THREE.Vector3()).length());
@@ -69,6 +71,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
    }
   }
   }
+  furnitureScene=addFurnitureScene(group,next);selectable.push(...furnitureScene.selectable);
   scene.add(group);group.updateMatrixWorld(true);
   bounds=new THREE.Box3().setFromObject(group);
   if(bounds.isEmpty())bounds=new THREE.Box3(new THREE.Vector3(-1,0,-1),new THREE.Vector3(9,3,7));
@@ -77,7 +80,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
  }
  const raycaster=new THREE.Raycaster();let start:{x:number;y:number;id:number}|undefined;
  function pointerDown(e:PointerEvent){if(e.isPrimary&&e.button===0)start={x:e.clientX,y:e.clientY,id:e.pointerId};else start=undefined;}
- function pointerUp(e:PointerEvent){if(!start||start.id!==e.pointerId)return;const click=Math.hypot(e.clientX-start.x,e.clientY-start.y)<5;start=undefined;if(!click)return;const r=canvas.getBoundingClientRect();raycaster.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,1-(e.clientY-r.top)/r.height*2),camera);onSelect(raycaster.intersectObjects(selectable,false)[0]?.object.userData.selection??null);}
+ function pointerUp(e:PointerEvent){if(!start||start.id!==e.pointerId)return;const click=Math.hypot(e.clientX-start.x,e.clientY-start.y)<5;start=undefined;if(!click)return;const r=canvas.getBoundingClientRect();raycaster.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,1-(e.clientY-r.top)/r.height*2),camera);onSelect(selectionFromIntersection(raycaster.intersectObjects(selectable,false)[0]));}
  const contextLost=(e:Event)=>{e.preventDefault();onError('Se interrumpió la visualización 3D. Volvé a la planta y abrí el visor nuevamente. Tu dibujo sigue guardado.');};
  canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('webglcontextlost',contextLost);
  const observer=new ResizeObserver(size);observer.observe(host);update(model);setMode('3d');
