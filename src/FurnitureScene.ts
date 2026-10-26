@@ -4,7 +4,10 @@ import type {FurniturePart} from './furniture3d';
 import {furnitureHeight,isFurniture3D} from './furnitureHeights';
 import {modelSelectionKey} from './model3d';
 import type {BuildingVolumes,ModelSelection} from './model3d';
-import type {Furniture} from './model';
+import type {Furniture,FinishKind} from './model';
+import {furnitureFinishColors} from './appearance';
+import {createFinishLibrary,finishMaterial} from './finishMaterials';
+import type {FinishLibrary} from './finishMaterials';
 
 export function furnitureMatrix(item:Furniture,level:number){
  return new THREE.Matrix4().compose(new THREE.Vector3(item.x,level+(item.elevation??0),item.y),new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),-item.rotation*Math.PI/180),new THREE.Vector3(item.width,furnitureHeight(item),item.depth));
@@ -21,19 +24,24 @@ function unitGeometry(shape:FurniturePart['shape']):THREE.BufferGeometry{
  }
 }
 /** Shared geometry/material batches keep draw calls bounded even with hundreds of items. */
-export function addFurnitureScene(group:THREE.Group,model:BuildingVolumes){
- const batches=new Map<FurniturePart['shape'],{matrix:THREE.Matrix4;color:THREE.Color;selection:ModelSelection;key:string}[]>();
+export function addFurnitureScene(group:THREE.Group,model:BuildingVolumes,finishes:FinishLibrary=createFinishLibrary()){
+ type Entry={matrix:THREE.Matrix4;color:THREE.Color;selection:ModelSelection;key:string};
+ const batches=new Map<string,{shape:FurniturePart['shape'];finish:FinishKind;entries:Entry[]}>();
  const cache=new Map<Furniture['kind'],FurniturePart[]>();
  for(const floor of model)for(const item of floor.furniture){
   if(!isFurniture3D(item.kind))continue;
   const parts=cache.get(item.kind)??furnitureParts(item.kind);cache.set(item.kind,parts);
   const root=furnitureMatrix(item,floor.elevation),selection={floorId:floor.id,elementId:item.id},key=modelSelectionKey(selection);
-  for(const part of parts){const batch=batches.get(part.shape)??[];batch.push({matrix:root.clone().multiply(furniturePartMatrix(part)),color:new THREE.Color(part.color),selection,key});batches.set(part.shape,batch);}
+  const primary=furnitureFinishColors(item.kind);
+  for(const part of parts){const appearance=primary.includes(part.color)?item.appearance:undefined,finish=appearance?.finish??'paint',batchKey=part.shape+'-'+finish;
+   const batch=batches.get(batchKey)??{shape:part.shape,finish,entries:[]};batch.entries.push({matrix:root.clone().multiply(furniturePartMatrix(part)),color:new THREE.Color(appearance?.color??part.color),selection,key});batches.set(batchKey,batch);
+  }
  }
  const selectable:THREE.InstancedMesh[]=[],outlines:number[]=[];
- const material=batches.size?new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}):undefined;
- for(const [shape,entries] of batches){
-  const geometry=unitGeometry(shape),mesh=new THREE.InstancedMesh(geometry,material!,entries.length);
+ const materials=new Map<FinishKind,THREE.MeshStandardMaterial>(),geometries=new Map<FurniturePart['shape'],THREE.BufferGeometry>();
+ for(const {shape,finish,entries} of batches.values()){
+  const material=materials.get(finish)??finishMaterial(finishes,{color:'#ffffff',finish},'#ffffff',true);materials.set(finish,material);
+  const geometry=geometries.get(shape)??unitGeometry(shape);geometries.set(shape,geometry);const mesh=new THREE.InstancedMesh(geometry,material,entries.length);
   mesh.userData.selections=entries.map(e=>e.selection);
   entries.forEach((e,i)=>{mesh.setMatrixAt(i,e.matrix);mesh.setColorAt(i,e.color);});
   mesh.computeBoundingBox();mesh.computeBoundingSphere();group.add(mesh);selectable.push(mesh);
@@ -43,9 +51,9 @@ export function addFurnitureScene(group:THREE.Group,model:BuildingVolumes){
   }
  }
  if(outlines.length){const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(outlines,3));group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:'#637166',transparent:true,opacity:.35,depthWrite:false})));}
- return {selectable,setSelected:(selection:ModelSelection|null)=>{
+ return {selectable,disposeTextures:()=>finishes.dispose(),setSelected:(selection:ModelSelection|null)=>{
   const key=modelSelectionKey(selection),highlight=new THREE.Color('#c18a50');
-  for(const [shape,entries] of batches){const mesh=selectable[Array.from(batches.keys()).indexOf(shape)];entries.forEach((e,i)=>mesh.setColorAt(i,e.key===key?e.color.clone().lerp(highlight,.65):e.color));if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}
+  let batchIndex=0;for(const {entries} of batches.values()){const mesh=selectable[batchIndex++];entries.forEach((e,i)=>mesh.setColorAt(i,e.key===key?e.color.clone().lerp(highlight,.65):e.color));if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}
  }};
 }
 export function selectionFromIntersection(hit:THREE.Intersection|undefined):ModelSelection|null{

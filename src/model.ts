@@ -1,6 +1,15 @@
+export type FinishKind='paint'|'wood'|'tile'|'concrete';
+export type Appearance={color:string;finish:FinishKind};
+export function validateAppearance(value:unknown):Appearance{
+ if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('El acabado del elemento no es válido.');
+ const a=value as Appearance;
+ if(typeof a.color!=='string'||!/^#[\da-f]{6}$/i.test(a.color)||!['paint','wood','tile','concrete'].includes(a.finish))throw new Error('Revisá el color y el tipo de acabado del elemento.');
+ return {color:a.color.toLowerCase(),finish:a.finish};
+}
+const appearanceFields=(item:{appearance?:Appearance})=>item.appearance===undefined?{}:{appearance:validateAppearance(item.appearance)};
 export type Point = { x: number; y: number };
 export type Projection = {id:string;name:string;points:Point[];closed:boolean};
-export type Slab = { thickness: number };
+export type Slab = { appearance?:Appearance; thickness: number };
 export type RoofShape = {kind:'shed'|'gable'|'halfHip'|'hip'|'perimeter';slope:number;direction:number};
 export type FlatRoof = Slab & { height: number; shape?:RoofShape; fitWalls?:boolean };
 export type RoofPlane = {a:number;b:number;c:number};
@@ -8,11 +17,11 @@ export type WallRoofSegment = {from:number;to:number;plane:RoofPlane;planes?:Roo
 export type SurfaceHole = {id:string;name:string;target:'slab'|'roof'|'both';points:Point[]};
 export type Surface = { holes?: SurfaceHole[]; slab?: Slab; roof?: FlatRoof; id: string; name: string; points: Point[] };
 export type Dimension = { id: string; a: Point; b: Point; offset: number };
-export type Wall = { height?: number; id: string; a: Point; b: Point; thickness?: number };
+export type Wall = { appearance?:Appearance; height?: number; id: string; a: Point; b: Point; thickness?: number };
 export type Opening = { height?: number; sill?: number; id: string; wallId: string; t: number; width: number; kind: 'door' | 'window'; hinge?: 'start' | 'end'; swing?: 'negative' | 'positive' };
 export type Label = { id: string; x: number; y: number; text: string };
 export type FurnitureKind = 'argentineGrill' | 'firePit' | 'tree' | 'palm' | 'shrub' | 'pottedPlant' | 'smallCar' | 'mediumCar' | 'pickup' | 'nightstand' | 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer' | 'stairs' | 'stairLanding';
-export type Furniture = { height?: number; elevation?: number; groupId?: string; id: string; kind: FurnitureKind; x: number; y: number; width: number; depth: number; rotation: number };
+export type Furniture = { appearance?:Appearance; height?: number; elevation?: number; groupId?: string; id: string; kind: FurnitureKind; x: number; y: number; width: number; depth: number; rotation: number };
 export const furnitureCatalog: { kind: FurnitureKind; name: string; width: number; depth: number }[] = [
   { kind: 'argentineGrill', name: 'Parrilla argentina', width: 1.5, depth: .8 },
   { kind: 'firePit', name: 'Fogonero', width: 1, depth: 1 },
@@ -134,7 +143,7 @@ export function validatePlan(value: unknown): Plan {
     if (f.kind === 'roundCoffeeTable' && f.width !== f.depth) throw new Error('La mesa redonda debe tener un único diámetro.');
     if (!point(f) || !furnitureCatalog.some(item => item.kind === f.kind) || !finite(f.width) || !finite(f.depth) || f.width < .2 || f.width > 10 || f.depth < .2 || f.depth > 10 || !finite(f.rotation) || f.rotation < 0 || f.rotation >= 360) throw new Error('El proyecto contiene muebles inválidos.');
   }
-  return { ...(p.wallHeight!==undefined?{wallHeight:p.wallHeight}:{}), ...(p.projections?{projections:projections.map(r=>({...r,points:r.points.map(p=>({...p}))}))}:{}), ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y})),...(s.holes!==undefined?{holes:s.holes.map(h=>({id:h.id,name:h.name,target:h.target,points:h.points.map(p=>({x:p.x,y:p.y}))}))}:{}),...(s.slab?{slab:{thickness:s.slab.thickness}}:{}),...(s.roof?{roof:{thickness:s.roof.thickness,height:s.roof.height,...(s.roof.fitWalls!==undefined?{fitWalls:s.roof.fitWalls}:{}),...(s.roof.shape?{shape:{...s.roof.shape}}:{})}}:{})})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.height!==undefined?{height:f.height}:{}), ...(f.elevation!==undefined?{elevation:f.elevation}:{}), ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}), ...(w.height!==undefined?{height:w.height}:{}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.height!==undefined?{height:o.height}:{}), ...(o.sill!==undefined?{sill:o.sill}:{}), ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
+  return { ...(p.wallHeight!==undefined?{wallHeight:p.wallHeight}:{}), ...(p.projections?{projections:projections.map(r=>({...r,points:r.points.map(p=>({...p}))}))}:{}), ...(p.reference?{reference:{data:p.reference.data,name:p.reference.name,x:p.reference.x,y:p.reference.y,width:p.reference.width,height:p.reference.height,opacity:p.reference.opacity,visible:p.reference.visible}}:{}), format: 'trazocasa', version: 6, surfaces: surfaces.map(s=>({id:s.id,name:s.name,points:s.points.map(p=>({x:p.x,y:p.y})),...(s.holes!==undefined?{holes:s.holes.map(h=>({id:h.id,name:h.name,target:h.target,points:h.points.map(p=>({x:p.x,y:p.y}))}))}:{}),...(s.slab?{slab:{thickness:s.slab.thickness,...appearanceFields(s.slab)}}:{}),...(s.roof?{roof:{...appearanceFields(s.roof),thickness:s.roof.thickness,height:s.roof.height,...(s.roof.fitWalls!==undefined?{fitWalls:s.roof.fitWalls}:{}),...(s.roof.shape?{shape:{...s.roof.shape}}:{})}}:{})})), dimensions: dimensions.map(d=>({id:d.id,a:{x:d.a.x,y:d.a.y},b:{x:d.b.x,y:d.b.y},offset:d.offset})), furniture: furniture.map(f => ({ ...appearanceFields(f), id: f.id, kind: f.kind, x: f.x, y: f.y, width: f.width, depth: f.depth, rotation: f.rotation, ...(f.height!==undefined?{height:f.height}:{}), ...(f.elevation!==undefined?{elevation:f.elevation}:{}), ...(f.groupId !== undefined ? {groupId:f.groupId} : {}) })), name: p.name, walls: p.walls.map(w => ({ ...appearanceFields(w), id: w.id, a: { x: w.a.x, y: w.a.y }, b: { x: w.b.x, y: w.b.y }, ...(w.thickness !== undefined ? { thickness: w.thickness } : {}), ...(w.height!==undefined?{height:w.height}:{}) })), openings: p.openings.map(o => ({ id: o.id, wallId: o.wallId, t: o.t, width: o.width, kind: o.kind, ...(o.height!==undefined?{height:o.height}:{}), ...(o.sill!==undefined?{sill:o.sill}:{}), ...(o.kind === 'door' && o.hinge !== undefined ? { hinge: o.hinge } : {}), ...(o.kind === 'door' && o.swing !== undefined ? { swing: o.swing } : {}) })), labels: p.labels.map(l => ({ id: l.id, x: l.x, y: l.y, text: l.text })) };
 }
 export function sample(): Plan {
   const wall = (id: string, x: number, y: number, x2: number, y2: number): Wall => ({ id, a: { x, y }, b: { x: x2, y: y2 } });

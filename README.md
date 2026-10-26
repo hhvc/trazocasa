@@ -354,3 +354,15 @@ Los 29 objetos del catálogo (excepto escaleras y descansos) tienen volúmenes s
 Las alturas y elevaciones se guardan como campos opcionales en el formato existente y admiten Deshacer/Rehacer, copias de plantas y archivos locales. No cambian los niveles de piso. Las escaleras y descansos siguen siendo símbolos 2D hasta definir su desarrollo vertical. No se calculan colisiones, encuentros entre muebles ni dimensiones de fabricantes.
 
 Las formas comparten geometrías y materiales mediante instancias; no se descargan modelos externos y el renderizado permanece en el navegador. Pruebas: cobertura del catálogo, límites de los volúmenes, orientación, selección entre pisos, persistencia, visibilidad y lotes de 500 objetos.
+
+### Colores y acabados
+
+En **Ver 3D**, seleccionar un muro, mueble, losa o cubierta y abrir **Propiedades → Color y acabado**. Elegir pintura lisa, madera, cerámico u hormigón; luego ajustar el color con las muestras, el selector o un código hexadecimal de seis dígitos. Elegir un acabado propone su color inicial, que se puede personalizar.
+
+Los cambios se previsualizan sin modificar el archivo ni el historial. **Aplicar acabado** confirma una edición; **Cancelar**, cambiar de elemento o salir de la pestaña descarta la prueba. Guardar y exportar requieren aplicar o cancelar la vista previa. **Restablecer aspecto original** elimina el acabado personalizado. Deshacer/Rehacer recupera los cambios aplicados.
+
+La losa y la cubierta de un mismo contorno tienen acabados independientes. En un muro se cambia el elemento completo, incluidas ambas caras. En muebles se modifican las superficies principales: tapizado de sofás, cobertura de camas, cuerpo de muebles y vehículos, copa de árboles o maceta, según el objeto. Los vidrios, neumáticos y pequeños detalles conservan su aspecto. Las escaleras siguen siendo símbolos 2D.
+
+Los acabados se ven en el modelo 3D y su PNG. El bosquejo 2D conserva su estilo. Las texturas son patrones decorativos generados en el navegador; no representan el despiece de obra. La planta, los huecos, los niveles y las medidas permanecen iguales. No hay descargas de imágenes ni servicios nuevos.
+
+El formato v7/v6 incorpora campos opcionales de apariencia por elemento. Los archivos anteriores conservan los colores originales. Los acabados se conservan en archivos locales, copias de plantas, edición de medidas y división de muros. Las geometrías y texturas se comparten en el visor; cada apertura libera sus recursos al cerrarse.

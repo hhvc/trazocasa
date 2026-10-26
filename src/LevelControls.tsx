@@ -16,8 +16,8 @@ export function SlabControls({surface,plan,onChange}:{surface:Surface;plan:Plan;
  const [kind,setKind]=useState<RoofShape['kind']|'flat'>(surface.roof?.shape?.kind??'flat'),[slope,setSlope]=useState(String(surface.roof?.shape?.slope??30)),[direction,setDirection]=useState(String(surface.roof?.shape?.direction??0)),[fitWalls,setFitWalls]=useState(surface.roof?.fitWalls??false),[error,setError]=useState('');
  const range=surface.roof?roofHeightRange(surface):null;
  return <form className="height-controls" onSubmit={e=>{e.preventDefault();try{
-  const slab=floor?{thickness:number(thickness)}:undefined;
-  const nextRoof:FlatRoof|undefined=roof?{thickness:number(roofThickness),height:number(height),fitWalls,...(kind!=='flat'?{shape:{kind,slope:number(slope),direction:kind==='perimeter'?0:number(direction)}}:{})}:undefined;
+  const slab=floor?{...surface.slab,thickness:number(thickness)}:undefined;
+  const nextRoof:FlatRoof|undefined=roof?{...(surface.roof?.appearance?{appearance:surface.roof.appearance}:{}),thickness:number(roofThickness),height:number(height),fitWalls,...(kind!=='flat'?{shape:{kind,slope:number(slope),direction:kind==='perimeter'?0:number(direction)}}:{})}:undefined;
   validatePlan({...plan,surfaces:plan.surfaces.map(s=>s.id===surface.id?{...s,slab,roof:nextRoof}:s)});onChange(slab,nextRoof);setError('');
  }catch(e){setError((e as Error).message);}}}>
  <strong>Losa y techo de este contorno</strong>

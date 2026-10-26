@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createFinishLibrary,finishMaterial,finishUV} from './finishMaterials';
 import {addFurnitureScene,selectionFromIntersection} from './FurnitureScene';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {plateGeometry,roofGeometry,wallSolidGeometry} from './plateGeometry';
@@ -12,6 +13,7 @@ function disposeGroup(group:THREE.Object3D){
  geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());
 }
 export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSelect:(selection:ModelSelection|null)=>void,onError:(message:string)=>void){
+ const finishes=createFinishLibrary();
  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setClearColor('#faf9f5');
  const canvas=renderer.domElement;canvas.setAttribute('aria-label','Modelo 3D del edificio');canvas.setAttribute('role','img');canvas.tabIndex=0;host.appendChild(canvas);
@@ -45,14 +47,15 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
    const selection=(elementId:string)=>({floorId:floor.id,elementId});
    for(const plate of floor.plates){
     const geometry=plate.planes?roofGeometry(plate.points,plate.top-plate.bottom,plate.holes,plate.planes,plate.bottom):plateGeometry(plate.points,plate.top-plate.bottom,plate.holes);
-    const color=plate.kind==='roof'?'#a7b3a4':'#d6ccb6',material=new THREE.MeshStandardMaterial({color,roughness:1,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
-    const mesh=new THREE.Mesh(geometry,material);mesh.position.y=plate.bottom;mesh.userData.selection=selection(plate.id);floorGroup.add(mesh);selectable.push(mesh);remember(modelSelectionKey(selection(plate.id)),material,color);
+    const color=plate.appearance?.color??(plate.kind==='roof'?'#a7b3a4':'#d6ccb6'),material=finishMaterial(finishes,plate.appearance,color);
+    if(plate.appearance)finishUV(geometry,plate.appearance.finish);
+    const mesh=new THREE.Mesh(geometry,material);mesh.position.y=plate.bottom;mesh.userData.selection={...selection(plate.id),plate:plate.kind==='roof'?'roof':'slab'};floorGroup.add(mesh);selectable.push(mesh);remember(modelSelectionKey(selection(plate.id)),material,color);
     const outline=new THREE.LineSegments(new THREE.EdgesGeometry(geometry),new THREE.LineBasicMaterial({color:'#637166'}));outline.position.y=plate.bottom;floorGroup.add(outline);
    }
    for(const w of floor.walls){
    const wall=new THREE.Group();wall.position.set(w.a.x,0,w.a.y);wall.rotation.y=-w.angle;floorGroup.add(wall);
-   const material=new THREE.MeshStandardMaterial({color:'#e6e4d8',roughness:1,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});remember(modelSelectionKey(selection(w.id)),material,'#e6e4d8');
-   for(const s of w.solids){const mesh=new THREE.Mesh(wallSolidGeometry(w,s),material);mesh.userData.selection=selection(w.id);wall.add(mesh);selectable.push(mesh);}
+   const material=finishMaterial(finishes,w.appearance,'#e6e4d8');remember(modelSelectionKey(selection(w.id)),material,w.appearance?.color??'#e6e4d8');
+   for(const s of w.solids){const geometry=wallSolidGeometry(w,s);if(w.appearance)finishUV(geometry,w.appearance.finish);const mesh=new THREE.Mesh(geometry,material);mesh.userData.selection=selection(w.id);wall.add(mesh);selectable.push(mesh);}
    const edges:number[]=[];const line=(a:number[],b:number[])=>edges.push(...a,...b);
    const top=(s:typeof w.profile[number],x:number,z:number)=>{const cos=Math.cos(w.angle),sin=Math.sin(w.angle),px=w.a.x+x*cos-z*sin,py=w.a.y+x*sin+z*cos;return Math.min(...(s.planes??[s.plane]).map(p=>p.a*px+p.b*py+p.c));};
    for(const z of [-w.thickness/2,w.thickness/2]){
@@ -71,7 +74,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
    }
   }
   }
-  furnitureScene=addFurnitureScene(group,next);selectable.push(...furnitureScene.selectable);
+  furnitureScene=addFurnitureScene(group,next,finishes);selectable.push(...furnitureScene.selectable);
   scene.add(group);group.updateMatrixWorld(true);
   bounds=new THREE.Box3().setFromObject(group);
   // An elevated object still needs its floor as the grid and framing reference.
@@ -88,6 +91,6 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
  const observer=new ResizeObserver(size);observer.observe(host);update(model);setMode('3d');
  return {update,setMode,setSelected,fit,zoom:(factor:number)=>{camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.1,30);camera.updateProjectionMatrix();render();},
   exportPng:async()=>{const previous=selected;setSelected(null);try{return await new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('No se pudo generar la imagen.')),'image/png'));}finally{setSelected(previous);}},
-  dispose:()=>{closed=true;observer.disconnect();controls.dispose();canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('webglcontextlost',contextLost);disposeGroup(group);if(grid)disposeGroup(grid);renderer.dispose();renderer.forceContextLoss();canvas.remove();}
+  dispose:()=>{closed=true;observer.disconnect();controls.dispose();canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('webglcontextlost',contextLost);disposeGroup(group);if(grid)disposeGroup(grid);finishes.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();}
  };
 }

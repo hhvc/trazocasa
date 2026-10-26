@@ -17,11 +17,11 @@ export function wallVolumes(plan:Plan) {
   let from=0;
   for(const o of openings){add(from,o.from,0,height,true);add(o.from,o.to,0,o.bottom);add(o.from,o.to,o.top,height,true);from=o.to;}
   add(from,length,0,height,true);
-  return {id:w.id,a:w.a,b:w.b,length,height,thickness:wallThickness(w),angle:Math.atan2(w.b.y-w.a.y,w.b.x-w.a.x),solids,openings,profile};
+  return {...(w.appearance?{appearance:w.appearance}:{}),id:w.id,a:w.a,b:w.b,length,height,thickness:wallThickness(w),angle:Math.atan2(w.b.y-w.a.y,w.b.x-w.a.x),solids,openings,profile};
  });
 }
 
-export type ModelSelection = {floorId:string; elementId:string};
+export type ModelSelection = {floorId:string; elementId:string;plate?:'slab'|'roof'};
 export const modelSelectionKey=(selection:ModelSelection|null)=>selection?JSON.stringify([selection.floorId,selection.elementId]):'';
 export type ModelOptions={scope:'all'|'active';slabs:boolean;roofs:boolean;furniture?:boolean};
 export function buildingVolumes(building:Building,options:ModelOptions){
@@ -31,8 +31,8 @@ export function buildingVolumes(building:Building,options:ModelOptions){
   const plates=floor.plan.surfaces.flatMap(surface=>{
    const common={id:surface.id,name:surface.name,points:surface.points};
    return [
-    ...(surface.slab&&options.slabs?[{...common,kind:'floor' as const,planes:undefined as RoofPlane[]|undefined,holes:plateHoles(surface,'slab'),bottom:-surface.slab.thickness,top:0}]:[]),
-    ...(surface.roof&&options.roofs?[{...common,kind:'roof' as const,planes:roofPlanes(surface),holes:plateHoles(surface,'roof'),bottom:surface.roof.height,top:surface.roof.height+surface.roof.thickness}]:[]),
+    ...(surface.slab&&options.slabs?[{...common,appearance:surface.slab.appearance,kind:'floor' as const,planes:undefined as RoofPlane[]|undefined,holes:plateHoles(surface,'slab'),bottom:-surface.slab.thickness,top:0}]:[]),
+    ...(surface.roof&&options.roofs?[{...common,appearance:surface.roof.appearance,kind:'roof' as const,planes:roofPlanes(surface),holes:plateHoles(surface,'roof'),bottom:surface.roof.height,top:surface.roof.height+surface.roof.thickness}]:[]),
    ];
   });
   return [{id:floor.id,name:floor.name,elevation:levels[index],walls:wallVolumes(floor.plan),plates,furniture:options.furniture===false?[]:floor.plan.furniture.filter(f=>f.kind!=='stairs'&&f.kind!=='stairLanding')}];
