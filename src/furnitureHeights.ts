@@ -2,7 +2,7 @@ import type {Furniture,FurnitureKind} from './model';
 export type Furniture3DKind=Exclude<FurnitureKind,'stairs'|'stairLanding'>;
 /** Approximate overall heights, independent of footprint and floor levels. */
 export const furnitureHeights:Record<Furniture3DKind,number>={
- argentineGrill:1.8,firePit:.45,tree:4.2,palm:5.4,shrub:.9,pottedPlant:1.1,
+ person:1.7,argentineGrill:1.8,firePit:.45,tree:4.2,palm:5.4,shrub:.9,pottedPlant:1.1,
  smallCar:1.45,mediumCar:1.5,pickup:1.8,nightstand:.55,
  bed:.9,singleBed:.9,sofa:.85,sofa3:.85,armchair:.85,chair:.9,
  table:.75,desk:.75,roundCoffeeTable:.42,wardrobe:2.2,

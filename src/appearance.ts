@@ -20,6 +20,7 @@ export function withAppearance(plan:Plan,target:AppearanceTarget,appearance?:App
 }
 /** Only primary surfaces change: glass, tires, fixtures and small details retain their colors. */
 export function furnitureFinishColors(kind:FurnitureKind):string[]{
+ if(kind==='person')return ['#7297ab'];
  if(['bed','singleBed'].includes(kind))return ['#b6c5b7'];
  if(['sofa','sofa3','armchair'].includes(kind))return ['#b6c5b7','#eeeade'];
  if(['chair','table','desk','wardrobe','nightstand','roundCoffeeTable','argentineGrill'].includes(kind))return ['#bda789','#eeeade'];

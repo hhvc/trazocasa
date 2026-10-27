@@ -28,7 +28,7 @@ function dispose(group){const geometry=new Set(),materials=new Set();group.trave
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-5,`${a} ≠ ${b}`);
 
 test('all supported catalog objects produce finite geometry within their 2D footprints and total heights',()=>{
- assert.equal(furnitureCatalog.filter(f=>isFurniture3D(f.kind)).length,29);
+ assert.equal(furnitureCatalog.filter(f=>isFurniture3D(f.kind)).length,30);
  for(const f of furnitureCatalog.filter(f=>isFurniture3D(f.kind))){
   const source=item(f.kind,{width:1,depth:1,height:1});
   assert.deepEqual(furnitureParts(f.kind),furnitureParts(f.kind));

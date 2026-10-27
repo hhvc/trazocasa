@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import {createPersonCamera} from './PersonCamera';
+import type {PersonView} from './personView';
 import {createFinishLibrary,finishMaterial,finishUV} from './finishMaterials';
 import {addFurnitureScene,selectionFromIntersection} from './FurnitureScene';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -26,11 +28,13 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
  let furnitureScene:ReturnType<typeof addFurnitureScene>|undefined;
  const selectable:THREE.Object3D[]=[];
  const colors=new Map<string,{material:THREE.MeshStandardMaterial|THREE.LineBasicMaterial;base:string}[]>();
- const render=()=>{if(!closed)renderer.render(scene,camera);};controls.addEventListener('change',render);
+ const render=()=>{if(!closed)renderer.render(scene,personCamera.active?personCamera.camera:camera);};
+ const personCamera=createPersonCamera(canvas,render);controls.addEventListener('change',render);
  const remember=(id:string,material:THREE.MeshStandardMaterial|THREE.LineBasicMaterial,base:string)=>{const list=colors.get(id)??[];list.push({material,base});colors.set(id,list);};
  function setSelected(selection:ModelSelection|null){selected=selection;const id=modelSelectionKey(selection);colors.forEach((list,key)=>list.forEach(({material,base})=>material.color.set(key===id?'#c18a50':base)));furnitureScene?.setSelected(selection);render();}
- function size(){const width=Math.max(1,host.clientWidth),height=Math.max(1,host.clientHeight),aspect=width/height;renderer.setSize(width,height,false);camera.left=-span*aspect/2;camera.right=span*aspect/2;camera.top=span/2;camera.bottom=-span/2;camera.updateProjectionMatrix();render();}
+ function size(){const width=Math.max(1,host.clientWidth),height=Math.max(1,host.clientHeight),aspect=width/height;renderer.setSize(width,height,false);personCamera.resize(aspect);camera.left=-span*aspect/2;camera.right=span*aspect/2;camera.top=span/2;camera.bottom=-span/2;camera.updateProjectionMatrix();render();}
  function fit(){
+  if(personCamera.active){personCamera.reset();return;}
   const center=bounds.getCenter(new THREE.Vector3()),diagonal=Math.max(3,bounds.getSize(new THREE.Vector3()).length());
   const directions={ '3d':new THREE.Vector3(1,.8,1),front:new THREE.Vector3(0,0,1),back:new THREE.Vector3(0,0,-1),left:new THREE.Vector3(-1,0,0),right:new THREE.Vector3(1,0,0)};
   camera.up.set(0,1,0);camera.position.copy(center).add(directions[mode].normalize().multiplyScalar(diagonal*2));camera.far=diagonal*6+100;camera.zoom=1;controls.target.copy(center);camera.lookAt(center);camera.updateMatrixWorld();
@@ -38,7 +42,8 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
   for(const x of [bounds.min.x,bounds.max.x])for(const y of [bounds.min.y,bounds.max.y])for(const z of [bounds.min.z,bounds.max.z]){const p=new THREE.Vector3(x,y,z).sub(center).applyQuaternion(inverse);width=Math.max(width,Math.abs(p.x)*2);height=Math.max(height,Math.abs(p.y)*2);}
   span=Math.max(2,height,width/(Math.max(1,host.clientWidth)/Math.max(1,host.clientHeight)))*1.25;controls.update();size();
  }
- function setMode(next:ModelView){mode=next;controls.maxPolarAngle=mode==='3d'?Math.PI*.49:Math.PI;controls.enableRotate=mode==='3d';controls.mouseButtons.LEFT=mode==='3d'?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;controls.touches.ONE=mode==='3d'?THREE.TOUCH.ROTATE:THREE.TOUCH.PAN;if(grid)grid.visible=mode==='3d';fit();}
+ function setObserver(view:PersonView|null){controls.enabled=!view;personCamera.set(view);canvas.setAttribute('aria-label',view?'Vista desde la persona. Arrastrá o usá las flechas para mirar.':'Modelo 3D del edificio');if(grid)grid.visible=!view&&mode==='3d';render();}
+ function setMode(next:ModelView){setObserver(null);mode=next;controls.maxPolarAngle=mode==='3d'?Math.PI*.49:Math.PI;controls.enableRotate=mode==='3d';controls.mouseButtons.LEFT=mode==='3d'?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;controls.touches.ONE=mode==='3d'?THREE.TOUCH.ROTATE:THREE.TOUCH.PAN;if(grid)grid.visible=mode==='3d';fit();}
  function update(next:BuildingVolumes){
   if(next===lastModel)return;lastModel=next;
   scene.remove(group);disposeGroup(group);if(grid){scene.remove(grid);disposeGroup(grid);}group=new THREE.Group();selectable.length=0;colors.clear();
@@ -81,16 +86,16 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
   if(!bounds.isEmpty())for(const floor of next)if(floor.furniture.length)bounds.min.y=Math.min(bounds.min.y,floor.elevation);
   if(bounds.isEmpty())bounds=new THREE.Box3(new THREE.Vector3(-1,0,-1),new THREE.Vector3(9,3,7));
   const extent=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3()),gridSize=Math.max(10,Math.ceil(Math.max(extent.x,extent.z)+4));
-  grid=new THREE.GridHelper(gridSize,Math.min(100,gridSize),0xb7c6b7,0xe1e5db);grid.position.set(center.x,bounds.min.y-.02,center.z);grid.visible=mode==='3d';scene.add(grid);setSelected(selected);
+  grid=new THREE.GridHelper(gridSize,Math.min(100,gridSize),0xb7c6b7,0xe1e5db);grid.position.set(center.x,bounds.min.y-.02,center.z);grid.visible=mode==='3d'&&!personCamera.active;scene.add(grid);setSelected(selected);
  }
  const raycaster=new THREE.Raycaster();let start:{x:number;y:number;id:number}|undefined;
- function pointerDown(e:PointerEvent){if(e.isPrimary&&e.button===0)start={x:e.clientX,y:e.clientY,id:e.pointerId};else start=undefined;}
- function pointerUp(e:PointerEvent){if(!start||start.id!==e.pointerId)return;const click=Math.hypot(e.clientX-start.x,e.clientY-start.y)<5;start=undefined;if(!click)return;const r=canvas.getBoundingClientRect();raycaster.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,1-(e.clientY-r.top)/r.height*2),camera);onSelect(selectionFromIntersection(raycaster.intersectObjects(selectable,false)[0]));}
+ function pointerDown(e:PointerEvent){if(!personCamera.active&&e.isPrimary&&e.button===0)start={x:e.clientX,y:e.clientY,id:e.pointerId};else start=undefined;}
+ function pointerUp(e:PointerEvent){if(personCamera.active)return;if(!start||start.id!==e.pointerId)return;const click=Math.hypot(e.clientX-start.x,e.clientY-start.y)<5;start=undefined;if(!click)return;const r=canvas.getBoundingClientRect();raycaster.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,1-(e.clientY-r.top)/r.height*2),camera);onSelect(selectionFromIntersection(raycaster.intersectObjects(selectable,false)[0]));}
  const contextLost=(e:Event)=>{e.preventDefault();onError('Se interrumpió la visualización 3D. Volvé a la planta y abrí el visor nuevamente. Tu dibujo sigue guardado.');};
  canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('webglcontextlost',contextLost);
  const observer=new ResizeObserver(size);observer.observe(host);update(model);setMode('3d');
- return {update,setMode,setSelected,fit,zoom:(factor:number)=>{camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.1,30);camera.updateProjectionMatrix();render();},
+ return {update,setMode,setSelected,setObserver,look:personCamera.look,fit,zoom:(factor:number)=>{if(personCamera.active){personCamera.zoom(factor);return;}camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.1,30);camera.updateProjectionMatrix();render();},
   exportPng:async()=>{const previous=selected;setSelected(null);try{return await new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('No se pudo generar la imagen.')),'image/png'));}finally{setSelected(previous);}},
-  dispose:()=>{closed=true;observer.disconnect();controls.dispose();canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('webglcontextlost',contextLost);disposeGroup(group);if(grid)disposeGroup(grid);finishes.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();}
+  dispose:()=>{closed=true;observer.disconnect();personCamera.dispose();controls.dispose();canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('webglcontextlost',contextLost);disposeGroup(group);if(grid)disposeGroup(grid);finishes.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();}
  };
 }

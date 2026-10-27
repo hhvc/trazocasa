@@ -366,3 +366,13 @@ La losa y la cubierta de un mismo contorno tienen acabados independientes. En un
 Los acabados se ven en el modelo 3D y su PNG. El bosquejo 2D conserva su estilo. Las texturas son patrones decorativos generados en el navegador; no representan el despiece de obra. La planta, los huecos, los niveles y las medidas permanecen iguales. No hay descargas de imágenes ni servicios nuevos.
 
 El formato v7/v6 incorpora campos opcionales de apariencia por elemento. Los archivos anteriores conservan los colores originales. Los acabados se conservan en archivos locales, copias de plantas, edición de medidas y división de muros. Las geometrías y texturas se comparten en el visor; cada apertura libera sus recursos al cerrarse.
+
+### Personas y vista a la altura de los ojos
+
+En **Muebles → Persona**, tocar el plano para colocar una figura de 1,70 m. Sus detalles permiten cambiar estatura (0,50 a 2,50 m), orientación y elevación sobre el piso. La flecha indica hacia dónde mira; la huella cambia proporcionalmente con la estatura. Se puede mover, duplicar, agrupar y eliminar como los demás objetos. En 3D, el acabado modifica la camiseta.
+
+En **Ver 3D**, seleccionar la persona (también desde **Propiedades → Elemento**) y pulsar **Ver desde aquí**. La cámara queda en su posición, a una altura de ojos aproximada del 93 % de la estatura, sumando elevación y nivel de planta. Arrastrar el lienzo para mirar, usar las flechas del teclado con el lienzo enfocado o los botones de dirección táctiles. **Centrar mirada** / Inicio recupera la orientación; + y − ajustan el campo de visión.
+
+**Volver a la maqueta**, una fachada o Escape recupera el visor habitual. Cambiar de planta o alcance también sale de esta vista. La propia figura se oculta mientras se mira desde ella; las demás siguen visibles. La vista puede descargarse como PNG desde Propiedades.
+
+Las personas y sus medidas se guardan en el archivo local, admiten Deshacer/Rehacer y copia de plantas. La posición temporal de la cámara no modifica el proyecto. Es una vista fija: todavía no hay desplazamiento, animación ni colisiones. Todo se genera en el navegador, sin modelos externos ni servicios nuevos.

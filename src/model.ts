@@ -20,9 +20,10 @@ export type Dimension = { id: string; a: Point; b: Point; offset: number };
 export type Wall = { appearance?:Appearance; height?: number; id: string; a: Point; b: Point; thickness?: number };
 export type Opening = { height?: number; sill?: number; id: string; wallId: string; t: number; width: number; kind: 'door' | 'window'; hinge?: 'start' | 'end'; swing?: 'negative' | 'positive' };
 export type Label = { id: string; x: number; y: number; text: string };
-export type FurnitureKind = 'argentineGrill' | 'firePit' | 'tree' | 'palm' | 'shrub' | 'pottedPlant' | 'smallCar' | 'mediumCar' | 'pickup' | 'nightstand' | 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer' | 'stairs' | 'stairLanding';
+export type FurnitureKind = 'person' | 'argentineGrill' | 'firePit' | 'tree' | 'palm' | 'shrub' | 'pottedPlant' | 'smallCar' | 'mediumCar' | 'pickup' | 'nightstand' | 'bed' | 'sofa' | 'table' | 'desk' | 'wardrobe' | 'toilet' | 'bidet' | 'bathroomSink' | 'kitchenSink' | 'chair' | 'singleBed' | 'sofa3' | 'tv' | 'bathtub' | 'roundCoffeeTable' | 'armchair' | 'fridge' | 'stove' | 'washer' | 'stairs' | 'stairLanding';
 export type Furniture = { appearance?:Appearance; height?: number; elevation?: number; groupId?: string; id: string; kind: FurnitureKind; x: number; y: number; width: number; depth: number; rotation: number };
 export const furnitureCatalog: { kind: FurnitureKind; name: string; width: number; depth: number }[] = [
+  {kind:'person',name:'Persona',width:.6,depth:.4},
   { kind: 'argentineGrill', name: 'Parrilla argentina', width: 1.5, depth: .8 },
   { kind: 'firePit', name: 'Fogonero', width: 1, depth: 1 },
   { kind: 'tree', name: 'Árbol de copa', width: 3, depth: 3 },
@@ -137,6 +138,7 @@ export function validatePlan(value: unknown): Plan {
   }
   for (const l of p.labels) if (!point(l) || typeof l.text !== 'string' || l.text.length > 80) throw new Error('El proyecto contiene etiquetas inválidas.');
   for (const f of furniture) {
+    if(f.kind==='person'&&f.height!==undefined&&(!finite(f.height)||f.height<.5||f.height>2.5))throw new Error('La estatura debe estar entre 0,50 y 2,50 m.');
     if(f.height!==undefined&&(!finite(f.height)||f.height<.1||f.height>20))throw new Error('La altura del mueble debe estar entre 0,10 y 20 m.');
     if(f.elevation!==undefined&&(!finite(f.elevation)||f.elevation<0||f.elevation>20))throw new Error('La elevación del mueble debe estar entre 0 y 20 m.');
     if (f.groupId !== undefined && (typeof f.groupId !== 'string' || !f.groupId.trim() || f.groupId.length > 100)) throw new Error('El grupo de muebles no es válido.');

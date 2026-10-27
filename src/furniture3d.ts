@@ -14,6 +14,15 @@ export function furnitureParts(kind:Furniture3DKind):FurniturePart[]{
  const handle=(x:number,y:number,z=.487,w=.22)=>box(x,y,z,w,.025,.025,metal);
  const basin=(x:number,y:number,z:number,w:number,d:number)=>{box(x,y-.055,z,w,.06,d,glass);ring(x,y,z,w,.09,d,white);};
  switch(kind){
+ case 'person':{
+  const shirt='#7297ab',skin='#d2b9a1',pants='#596961';
+  for(const x of [-.17,.17]){box(x,.035,.1,.26,.07,.62,dark);cyl(x,.28,0,.22,.42,.45,pants);}
+  box(0,.5,0,.62,.12,.65,pants);box(0,.65,0,.7,.28,.68,shirt);
+  for(const x of [-.41,.41]){cyl(x,.67,0,.16,.2,.28,shirt);cyl(x,.49,0,.14,.18,.28,skin);ball(x,.4,0,.15,.07,.3,skin);}
+  cyl(0,.81,0,.18,.08,.3,skin);ball(0,.91,0,.4,.18,.53,skin);ball(0,.96,-.02,.41,.08,.53,dark);
+  ball(0,.91,.27,.08,.025,.08,skin);for(const x of [-.08,.08])ball(x,.93,.235,.035,.014,.035,dark);break;
+ }
+
  case 'bed':case 'singleBed':{
   legs(.22);box(0,.27,.02,.95,.22,.94,wood);box(0,.47,.025,.94,.2,.93,white);box(0,.61,.18,.95,.09,.56,cloth);box(0,.5,-.465,1,1,.07,wood);
   const n=kind==='bed'?2:1;for(let i=0;i<n;i++)box((i-(n-1)/2)*.46,.61,-.29,.82/n,.1,.22,light);break;
