@@ -15,7 +15,7 @@ export function furnitureMatrix(item:Furniture,level:number){
 export function furniturePartMatrix(part:FurniturePart){
  return new THREE.Matrix4().compose(new THREE.Vector3(...part.position),new THREE.Quaternion().setFromEuler(new THREE.Euler(...(part.rotation??[0,0,0]))),new THREE.Vector3(...part.scale));
 }
-function unitGeometry(shape:FurniturePart['shape']):THREE.BufferGeometry{
+export function unitGeometry(shape:FurniturePart['shape']):THREE.BufferGeometry{
  switch(shape){
   case 'box':return new THREE.BoxGeometry(1,1,1);
   case 'cylinder':return new THREE.CylinderGeometry(.5,.5,1,16);

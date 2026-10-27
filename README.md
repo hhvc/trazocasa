@@ -376,3 +376,13 @@ En **Ver 3D**, seleccionar la persona (también desde **Propiedades → Elemento
 **Volver a la maqueta**, una fachada o Escape recupera el visor habitual. Cambiar de planta o alcance también sale de esta vista. La propia figura se oculta mientras se mira desde ella; las demás siguen visibles. La vista puede descargarse como PNG desde Propiedades.
 
 Las personas y sus medidas se guardan en el archivo local, admiten Deshacer/Rehacer y copia de plantas. La posición temporal de la cámara no modifica el proyecto. Es una vista fija: todavía no hay desplazamiento, animación ni colisiones. Todo se genera en el navegador, sin modelos externos ni servicios nuevos.
+
+### Recorrido con una persona
+
+En **Ver 3D**, seleccionar una persona y pulsar **Controlar persona**. El recorrido inicia detrás de ella; **Primera persona / Tercera persona** alterna la cámara. Con el lienzo enfocado, WASD o flechas desplazan a la persona; arrastrar cambia la mirada. En pantallas táctiles, mantener los botones inferiores izquierdos para caminar y usar los derechos para mirar. Los brazos y piernas se animan solo al avanzar.
+
+**Volver al inicio** (también Inicio con el lienzo enfocado) recupera la posición y orientación iniciales. **Terminar recorrido**, Escape, una fachada o cambiar de planta devuelve la maqueta. La posición recorrida es temporal: no modifica el plano, su historial ni los archivos. **Guardar vista PNG** exporta la cámara actual.
+
+El cuerpo tiene un radio acorde a la figura y camina a 1,4 m/s. Se comprueban muros, ancho y altura de puertas, ventanas, muebles, losas y cubiertas; la cámara en tercera persona se acerca al encontrar obstáculos. El recorrido activa los elementos visibles y suspende la edición hasta terminar. El mobiliario usa su caja exterior como obstáculo: es una aproximación conservadora para esta etapa.
+
+Se recorre una planta a nivel constante. En la primera planta hay suelo implícito fuera de los contornos; los huecos de las losas bloquean el paso. En plantas superiores se requieren losas bajo los pies y se detiene el movimiento en bordes y huecos. La figura debe comenzar en un lugar libre, apoyada sobre el piso. Todavía no se suben escaleras, se salta ni se trepa. La pérdida de foco o visibilidad detiene los controles y al salir se liberan la animación, eventos y recursos. No se agregaron dependencias ni servicios.
