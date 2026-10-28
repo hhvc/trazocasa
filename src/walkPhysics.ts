@@ -34,23 +34,27 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
   for(let i=-1;i<24;i++){const a=i*Math.PI/12,q=i<0?p:{x:p.x+Math.cos(a)*radius,y:p.y+Math.sin(a)*radius};if(!covered(q))return false;}
   return !supports.some(s=>s.holes.some(h=>contacts(p,radius,h).some(q=>!covered(q))));
  }
- function canOccupy(pos:WalkPoint){
-  const p={x:pos.x,y:pos.z};if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||!supported(p))return false;
-  for(const b of blocks){if(b.bottom>=base+height-epsilon)continue;const dx=p.x-b.x,dz=p.y-b.z,x=dx*b.cos+dz*b.sin,z=-dx*b.sin+dz*b.cos,qx=clamp(x,-b.halfW,b.halfW),qz=clamp(z,-b.halfD,b.halfD);if(Math.hypot(x-qx,z-qz)>=radius)continue;const q={x:b.x+qx*b.cos-qz*b.sin,y:b.z+qx*b.sin+qz*b.cos};if(b.top(q,qx)>base+epsilon)return false;}
+ function verticalIntervals(pos:WalkPoint){
+  const p={x:pos.x,y:pos.z},spans:{bottom:number;top:number}[]=[];
+  for(const b of blocks){const dx=p.x-b.x,dz=p.y-b.z,x=dx*b.cos+dz*b.sin,z=-dx*b.sin+dz*b.cos,qx=clamp(x,-b.halfW,b.halfW),qz=clamp(z,-b.halfD,b.halfD);if(Math.hypot(x-qx,z-qz)>=radius)continue;const q={x:b.x+qx*b.cos-qz*b.sin,y:b.z+qx*b.sin+qz*b.cos};spans.push({bottom:b.bottom,top:b.top(q,qx)});}
   for(const plate of plates){
    const footprint=[...contacts(p,radius,plate.points),...Array.from({length:24},(_,i)=>({x:p.x+Math.cos(i*Math.PI/12)*radius,y:p.y+Math.sin(i*Math.PI/12)*radius})).filter(q=>inside(q,plate.points))];
-   for(const q of footprint){if(plate.holes.some(h=>inside(q,h)))continue;const bottom=plate.level+(plate.planes?Math.min(...plate.planes.map(v=>v.a*q.x+v.b*q.y+v.c)):plate.bottom),top=bottom+plate.top-plate.bottom;if(bottom<base+height-epsilon&&top>base+epsilon)return false;}
+   for(const q of footprint){if(plate.holes.some(h=>inside(q,h)))continue;const bottom=plate.level+(plate.planes?Math.min(...plate.planes.map(v=>v.a*q.x+v.b*q.y+v.c)):plate.bottom);spans.push({bottom,top:bottom+plate.top-plate.bottom});}
   }
-  return true;
+  return spans;
  }
- return {item:item as Furniture,base,height,radius,start:{x:item.x,z:item.y},canOccupy};
+ function canOccupy(pos:WalkPoint,body={base,height}){
+  if(![pos.x,pos.z,body.base,body.height].every(Number.isFinite)||body.base<base-epsilon||body.height<=0||!supported({x:pos.x,y:pos.z}))return false;
+  return !verticalIntervals(pos).some(span=>span.bottom<body.base+body.height-epsilon&&span.top>body.base+epsilon);
+ }
+ return {item:item as Furniture,base,height,radius,start:{x:item.x,z:item.y},canOccupy,verticalIntervals};
 }
 /** Short substeps prevent tunneling; axis fallback lets the body slide along obstacles. */
-export function moveWalker(world:WalkWorld,from:WalkPoint,dx:number,dz:number):WalkPoint{
+export function moveWalker(world:WalkWorld,from:WalkPoint,dx:number,dz:number,body?:{base:number;height:number}):WalkPoint{
  if(![dx,dz].every(Number.isFinite))return {...from};
  const length=Math.hypot(dx,dz),scale=length>1?1/length:1,steps=Math.max(1,Math.ceil(Math.min(length,1)/.025));
  dx=dx*scale/steps;dz=dz*scale/steps;let p={...from};
- for(let i=0;i<steps;i++){const next={x:p.x+dx,z:p.z+dz};if(world.canOccupy(next)){p=next;continue;}const x={x:p.x+dx,z:p.z},z={x:p.x,z:p.z+dz};if(world.canOccupy(x))p=x;if(world.canOccupy({...z,x:p.x}))p={...z,x:p.x};}
+ for(let i=0;i<steps;i++){const next={x:p.x+dx,z:p.z+dz};if(world.canOccupy(next,body)){p=next;continue;}const x={x:p.x+dx,z:p.z},z={x:p.x,z:p.z+dz};if(world.canOccupy(x,body))p=x;if(world.canOccupy({...z,x:p.x},body))p={...z,x:p.x};}
  return p;
 }
 export function walkDelta(yaw:number,forward:number,right:number,seconds:number){const norm=Math.max(1,Math.hypot(forward,right)),step=1.4*Math.max(0,Math.min(.05,seconds))/norm;return {x:(-Math.sin(yaw)*forward-Math.cos(yaw)*right)*step,z:(Math.cos(yaw)*forward-Math.sin(yaw)*right)*step};}

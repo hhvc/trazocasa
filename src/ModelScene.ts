@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {createWalkingPerson} from './WalkingPerson';
 import {createWalkController} from './WalkController';
-import type {WalkAction,WalkCameraMode,WalkProgress} from './WalkController';
+import type {WalkAction,WalkAbility,WalkCameraMode,WalkProgress} from './WalkController';
 import type {WalkWorld} from './walkPhysics';
 import {createPersonCamera} from './PersonCamera';
 import type {PersonView} from './personView';
@@ -53,7 +53,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
   stopWalk();setObserver(null);controls.enabled=false;
   avatar=createWalkingPerson(world.item,finishes);scene.add(avatar.root);
   walker=createWalkController(canvas,world,avatar,selectable.filter(o=>o.userData.cameraObstacle!==false),render,report);walker.resize(Math.max(1,host.clientWidth)/Math.max(1,host.clientHeight));
-  if(grid)grid.visible=false;canvas.setAttribute('aria-label','Recorrido. Usá WASD o flechas para caminar y arrastrá para mirar.');canvas.focus({preventScroll:true});render();
+  if(grid)grid.visible=false;canvas.setAttribute('aria-label','Recorrido. WASD o flechas para caminar, C para agacharse, espacio para saltar y arrastrar para mirar.');canvas.focus({preventScroll:true});render();
  }
  function setObserver(view:PersonView|null){controls.enabled=!view;personCamera.set(view);canvas.setAttribute('aria-label',view?'Vista desde la persona. Arrastrá o usá las flechas para mirar.':'Modelo 3D del edificio');if(grid)grid.visible=!view&&mode==='3d';render();}
  function setMode(next:ModelView){stopWalk();setObserver(null);mode=next;controls.maxPolarAngle=mode==='3d'?Math.PI*.49:Math.PI;controls.enableRotate=mode==='3d';controls.mouseButtons.LEFT=mode==='3d'?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;controls.touches.ONE=mode==='3d'?THREE.TOUCH.ROTATE:THREE.TOUCH.PAN;if(grid)grid.visible=mode==='3d';fit();}
@@ -107,7 +107,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
  const contextLost=(e:Event)=>{e.preventDefault();stopWalk();onError('Se interrumpió la visualización 3D. Volvé a la planta y abrí el visor nuevamente. Tu dibujo sigue guardado.');};
  canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('webglcontextlost',contextLost);
  const observer=new ResizeObserver(size);observer.observe(host);update(model);setMode('3d');
- return {update,setMode,setSelected,setObserver,setWalk,stopWalk,walkInput:(a:WalkAction,p:boolean)=>walker?.input(a,p),walkMode:(m:WalkCameraMode)=>walker?.setMode(m),look:(x:number,y:number)=>{if(walker)walker.look(x,y);else personCamera.look(x,y);},fit,zoom:(factor:number)=>{if(walker){walker.zoom(factor);return;}if(personCamera.active){personCamera.zoom(factor);return;}camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.1,30);camera.updateProjectionMatrix();render();},
+ return {update,setMode,setSelected,setObserver,setWalk,stopWalk,walkInput:(a:WalkAction,p:boolean)=>walker?.input(a,p),walkAct:(a:WalkAbility)=>walker?.act(a),walkMode:(m:WalkCameraMode)=>walker?.setMode(m),look:(x:number,y:number)=>{if(walker)walker.look(x,y);else personCamera.look(x,y);},fit,zoom:(factor:number)=>{if(walker){walker.zoom(factor);return;}if(personCamera.active){personCamera.zoom(factor);return;}camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.1,30);camera.updateProjectionMatrix();render();},
   exportPng:async()=>{const previous=selected;setSelected(null);try{return await new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('No se pudo generar la imagen.')),'image/png'));}finally{setSelected(previous);}},
   dispose:()=>{closed=true;stopWalk();observer.disconnect();personCamera.dispose();controls.dispose();canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('webglcontextlost',contextLost);disposeGroup(group);if(grid)disposeGroup(grid);finishes.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();}
  };

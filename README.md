@@ -386,3 +386,11 @@ En **Ver 3D**, seleccionar una persona y pulsar **Controlar persona**. El recorr
 El cuerpo tiene un radio acorde a la figura y camina a 1,4 m/s. Se comprueban muros, ancho y altura de puertas, ventanas, muebles, losas y cubiertas; la cámara en tercera persona se acerca al encontrar obstáculos. El recorrido activa los elementos visibles y suspende la edición hasta terminar. El mobiliario usa su caja exterior como obstáculo: es una aproximación conservadora para esta etapa.
 
 Se recorre una planta a nivel constante. En la primera planta hay suelo implícito fuera de los contornos; los huecos de las losas bloquean el paso. En plantas superiores se requieren losas bajo los pies y se detiene el movimiento en bordes y huecos. La figura debe comenzar en un lugar libre, apoyada sobre el piso. Todavía no se suben escaleras, se salta ni se trepa. La pérdida de foco o visibilidad detiene los controles y al salir se liberan la animación, eventos y recursos. No se agregaron dependencias ni servicios.
+
+### Agacharse y saltar
+
+Durante **Controlar persona**, **C** o **Agacharse / Levantarse** cambia la postura. La altura baja al 70 % y la velocidad se reduce a la mitad. Las rodillas se flexionan y la cámara sigue la altura de los ojos. Si no hay espacio encima, permanece agachada y avisa; al salir del obstáculo, volver a pulsar para levantarse.
+
+**Espacio** o **Saltar** inicia un salto de aproximadamente 55 cm, con gravedad y control de techos. Se requiere estar de pie y apoyado; mantener la tecla no encadena saltos. Se puede aterrizar sobre un objeto bajo y bajar de él caminando. Se conservan los límites de la planta: los bordes y huecos de losas no se atraviesan, incluso al saltar. No hay escalada ni conexión por escaleras todavía.
+
+El mobiliario sigue usando su caja exterior para las colisiones: una mesa completa ocupa ese volumen, aunque el dibujo muestre espacio entre las patas. Las posturas y los saltos son temporales; **Volver al inicio** recupera la posición de pie sin modificar el proyecto.

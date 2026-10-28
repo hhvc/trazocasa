@@ -8,7 +8,9 @@ const modelUrl=await moduleUrl('./model.ts'),heightsUrl=await moduleUrl('./furni
 const {emptyPlan,validatePlan,validateBuilding,buildingFromPlan,addFloor}=await import(modelUrl);
 const volumesUrl=await moduleUrl('./model3d.ts',{'./model':modelUrl}),{buildingVolumes}=await import(volumesUrl);
 const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./furnitureHeights':heightsUrl}),{createWalkWorld,moveWalker,walkDelta}=await import(physicsUrl);
-const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl}));
+const motionUrl=await moduleUrl('./walkMotion.ts',{'./walkPhysics':physicsUrl});
+const {advanceWalk,initialMotion,toggleCrouch,jump,verticalStep,bodyHeight}=await import(motionUrl);
+const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
 const person=(extra={})=>({id:'person',kind:'person',x:3,y:1,width:.6,depth:.4,rotation:180,...extra});
 const wall={id:'wall',a:{x:0,y:0},b:{x:6,y:0},thickness:.1};
 const rectangle=(x,y,w,d)=>[{x,y},{x:x+w,y},{x:x+w,y:y+d},{x,y:y+d}];
@@ -58,11 +60,11 @@ test('collision construction and temporary motion do not change the saved plan',
  const b=project({walls:[wall]}),before=JSON.stringify(b),w=world(b);walk(w,w.start,.05,0);assert.equal(JSON.stringify(b),before);assert.throws(()=>createWalkWorld([], {floorId:'missing',elementId:'person'}));
 });
 function target(){const events=new Map();return {events,addEventListener(name,fn){const set=events.get(name)??new Set();set.add(fn);events.set(name,set);},removeEventListener(name,fn){events.get(name)?.delete(fn);},fire(name,props={}){const e={preventDefault(){this.prevented=true;},...props};for(const fn of events.get(name)??[])fn(e);return e;},count(){return [...events.values()].reduce((n,s)=>n+s.size,0);}};}
-function harness(obstacles=[],useDefaultClock=false){
+function harness(obstacles=[],useDefaultClock=false,overrideWorld){
  const win=target(),doc={...target(),defaultView:win},canvas={...target(),ownerDocument:doc,style:{cursor:'default'},focus(){},setPointerCapture(){},hasPointerCapture(){return false;},releasePointerCapture(){}};
  let callback,id=0;const clock={request(cb){callback=cb;return ++id;},cancel(){callback=undefined;}};
  const avatar={root:new Group(),poses:[],pose(d,m){this.poses.push([d,m]);}},reports=[];
- const w=world(project({},person({x:0,y:0,rotation:0}))),controller=createWalkController(canvas,w,avatar,obstacles,()=>{},p=>reports.push(p),useDefaultClock?undefined:clock);
+ const w=overrideWorld??world(project({},person({x:0,y:0,rotation:0}))),controller=createWalkController(canvas,w,avatar,obstacles,()=>{},p=>reports.push(p),useDefaultClock?undefined:clock);
  return {win,doc,canvas,avatar,reports,controller,tick(t){const next=callback;callback=undefined;next?.(t);},get queued(){return !!callback;}};
 }
 test('keyboard walking, reset, camera toggle and animation preserve the original spawn',()=>{
@@ -88,4 +90,46 @@ test('browser frame methods retain their native receiver rather than the clock w
  globalThis.requestAnimationFrame=function(){assert.ok(this===undefined||this===globalThis);requested++;return 42;};
  globalThis.cancelAnimationFrame=function(id){assert.ok(this===undefined||this===globalThis);assert.equal(id,42);cancelled++;};
  try{const h=harness([],true);assert.equal(requested,1);h.controller.dispose();assert.equal(cancelled,1);}finally{if(oldRequest)globalThis.requestAnimationFrame=oldRequest;else delete globalThis.requestAnimationFrame;if(oldCancel)globalThis.cancelAnimationFrame=oldCancel;else delete globalThis.cancelAnimationFrame;}
+});
+
+test('crouching fits under a low lintel, cannot stand beneath it, and keeps the plan unchanged',()=>{
+ const b=project({walls:[wall],openings:[{id:'door',kind:'door',wallId:'wall',t:.5,width:.9,height:1.35}]}),before=JSON.stringify(b),w=world(b);
+ let m=toggleCrouch(w,initialMotion(w));assert.ok(m.crouched);close(bodyHeight(w,m),1.19);
+ for(let i=0;i<20;i++)m=advanceWalk(w,m,0,-.05,.05).motion;
+ assert.ok(Math.abs(m.position.z)<.03);m=toggleCrouch(w,m);assert.ok(m.crouched&&m.standBlocked);
+ for(let i=0;i<20;i++)m=advanceWalk(w,m,0,-.05,.05).motion;
+ assert.ok(!m.standBlocked);m=toggleCrouch(w,m);assert.ok(!m.crouched);assert.equal(JSON.stringify(b),before);
+});
+test('jump reaches its intended apex and lands on the same floor at different frame rates',()=>{
+ for(const dt of [.01,.025,.05]){const w=world();let m=jump(initialMotion(w)),peak=0;for(let i=0;i<Math.ceil(1.2/dt);i++){m=advanceWalk(w,m,0,0,dt).motion;peak=Math.max(peak,m.feet);}assert.ok(Math.abs(peak-w.base-.55)<.002);assert.ok(m.grounded);close(m.feet,w.base);close(m.velocity,0);}
+});
+test('a held jump cannot double-jump and crouching prevents takeoff',()=>{
+ const w=world(),start=initialMotion(w),up=jump(start);assert.equal(jump(up),up);const crouched=toggleCrouch(w,start);assert.equal(jump(crouched),crouched);
+ const paused=advanceWalk(w,up,0,0,0).motion;assert.equal(paused.velocity,up.velocity);assert.equal(paused.grounded,false);
+});
+test('thin ceilings stop upward motion without tunneling and the person lands afterward',()=>{
+ const w=world(project({surfaces:[{id:'roof',name:'Techo',points:rectangle(0,-3,6,6),roof:{height:1.85,thickness:.02}}]}));let m=jump(initialMotion(w)),peak=0;
+ for(let i=0;i<30;i++){m=advanceWalk(w,m,0,0,.05).motion;peak=Math.max(peak,m.feet);}assert.ok(peak<=.151);assert.ok(m.grounded);close(m.feet,w.base);
+ const sweep=verticalStep(w,w.start,0,1.7,5);assert.ok(sweep.ceiling);close(sweep.feet,.15);
+});
+test('jump can land on low furniture and stepping off returns to the floor',()=>{
+ const p=person({x:0,y:0,rotation:0}),w=world(project({furniture:[p,{id:'box',kind:'nightstand',x:0,y:.8,width:1,depth:.4,rotation:0,height:.25}]},p));let m=jump(initialMotion(w));
+ for(let i=0;i<25;i++)m=advanceWalk(w,m,0,.04,.025).motion;
+ for(let i=0;i<25;i++)m=advanceWalk(w,m,0,0,.025).motion;
+ assert.ok(m.grounded);close(m.feet,.25);
+ for(let i=0;i<60;i++)m=advanceWalk(w,m,.05,0,.025).motion;
+ assert.ok(m.grounded);close(m.feet,0);
+});
+test('jumping still respects upper floor edges and slab holes',()=>{
+ const b=addFloor(project({surfaces:[{id:'slab',name:'Piso',points:rectangle(0,0,6,6),slab:{thickness:.2}}]},person({x:.4,y:2})),'Alta','copy'),w=world(b,1);let m=jump(initialMotion(w));
+ for(let i=0;i<50;i++)m=advanceWalk(w,m,-.05,0,.025).motion;assert.ok(m.position.x>=w.radius-.001);assert.ok(m.grounded);close(m.feet,w.base);
+});
+test('keyboard and touch abilities change posture and eye height, reject repeats and reset cleanly',()=>{
+ const h=harness();h.controller.setMode('first');h.tick(0);h.canvas.fire('keydown',{code:'KeyC'});h.tick(25);assert.ok(h.reports.at(-1).crouched);close(h.controller.camera.position.y,1.7*.63);
+ h.canvas.fire('keydown',{code:'KeyC',repeat:true});assert.ok(h.reports.at(-1).crouched);h.controller.act('jump');assert.ok(h.reports.at(-1).grounded);
+ h.controller.act('crouch');h.canvas.fire('keydown',{code:'Space'});h.tick(50);assert.ok(!h.reports.at(-1).grounded);assert.ok(h.controller.camera.position.y>1.7*.93);
+ h.controller.reset();h.tick(75);assert.ok(h.reports.at(-1).grounded&&!h.reports.at(-1).crouched);close(h.controller.camera.position.y,1.7*.93);h.controller.dispose();
+});
+test('crouched movement is slower and focus loss preserves a safe crouched posture',()=>{
+ const h=harness();h.tick(0);h.controller.act('crouch');h.controller.input('forward',true);h.tick(50);close(h.avatar.root.position.z,.035);h.win.fire('blur');h.tick(100);h.tick(150);close(h.avatar.root.position.z,.035);assert.ok(h.reports.at(-1).crouched);h.controller.dispose();
 });
