@@ -58,11 +58,11 @@ test('collision construction and temporary motion do not change the saved plan',
  const b=project({walls:[wall]}),before=JSON.stringify(b),w=world(b);walk(w,w.start,.05,0);assert.equal(JSON.stringify(b),before);assert.throws(()=>createWalkWorld([], {floorId:'missing',elementId:'person'}));
 });
 function target(){const events=new Map();return {events,addEventListener(name,fn){const set=events.get(name)??new Set();set.add(fn);events.set(name,set);},removeEventListener(name,fn){events.get(name)?.delete(fn);},fire(name,props={}){const e={preventDefault(){this.prevented=true;},...props};for(const fn of events.get(name)??[])fn(e);return e;},count(){return [...events.values()].reduce((n,s)=>n+s.size,0);}};}
-function harness(obstacles=[]){
+function harness(obstacles=[],useDefaultClock=false){
  const win=target(),doc={...target(),defaultView:win},canvas={...target(),ownerDocument:doc,style:{cursor:'default'},focus(){},setPointerCapture(){},hasPointerCapture(){return false;},releasePointerCapture(){}};
  let callback,id=0;const clock={request(cb){callback=cb;return ++id;},cancel(){callback=undefined;}};
  const avatar={root:new Group(),poses:[],pose(d,m){this.poses.push([d,m]);}},reports=[];
- const w=world(project({},person({x:0,y:0,rotation:0}))),controller=createWalkController(canvas,w,avatar,obstacles,()=>{},p=>reports.push(p),clock);
+ const w=world(project({},person({x:0,y:0,rotation:0}))),controller=createWalkController(canvas,w,avatar,obstacles,()=>{},p=>reports.push(p),useDefaultClock?undefined:clock);
  return {win,doc,canvas,avatar,reports,controller,tick(t){const next=callback;callback=undefined;next?.(t);},get queued(){return !!callback;}};
 }
 test('keyboard walking, reset, camera toggle and animation preserve the original spawn',()=>{
@@ -81,4 +81,11 @@ test('touch movement combines with looking and stops when its button is released
 });
 test('third person camera retracts before a wall instead of crossing it',()=>{
  const mesh=new Mesh(new BoxGeometry(6,4,.2),new MeshBasicMaterial());mesh.position.set(0,2,-1.2);mesh.updateMatrixWorld();const h=harness([mesh]);h.tick(0);assert.ok(h.controller.camera.position.z>-1.1);h.controller.setMode('first');close(h.controller.camera.position.z,0);assert.equal(h.avatar.root.visible,false);h.controller.dispose();mesh.geometry.dispose();mesh.material.dispose();
+});
+
+test('browser frame methods retain their native receiver rather than the clock wrapper',()=>{
+ const oldRequest=globalThis.requestAnimationFrame,oldCancel=globalThis.cancelAnimationFrame;let requested=0,cancelled=0;
+ globalThis.requestAnimationFrame=function(){assert.ok(this===undefined||this===globalThis);requested++;return 42;};
+ globalThis.cancelAnimationFrame=function(id){assert.ok(this===undefined||this===globalThis);assert.equal(id,42);cancelled++;};
+ try{const h=harness([],true);assert.equal(requested,1);h.controller.dispose();assert.equal(cancelled,1);}finally{if(oldRequest)globalThis.requestAnimationFrame=oldRequest;else delete globalThis.requestAnimationFrame;if(oldCancel)globalThis.cancelAnimationFrame=oldCancel;else delete globalThis.cancelAnimationFrame;}
 });
