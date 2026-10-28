@@ -52,7 +52,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
  function setWalk(world:WalkWorld,report:(p:WalkProgress)=>void){
   stopWalk();setObserver(null);controls.enabled=false;
   avatar=createWalkingPerson(world.item,finishes);scene.add(avatar.root);
-  walker=createWalkController(canvas,world,avatar,selectable,render,report);walker.resize(Math.max(1,host.clientWidth)/Math.max(1,host.clientHeight));
+  walker=createWalkController(canvas,world,avatar,selectable.filter(o=>o.userData.cameraObstacle!==false),render,report);walker.resize(Math.max(1,host.clientWidth)/Math.max(1,host.clientHeight));
   if(grid)grid.visible=false;canvas.setAttribute('aria-label','Recorrido. Usá WASD o flechas para caminar y arrastrá para mirar.');canvas.focus({preventScroll:true});render();
  }
  function setObserver(view:PersonView|null){controls.enabled=!view;personCamera.set(view);canvas.setAttribute('aria-label',view?'Vista desde la persona. Arrastrá o usá las flechas para mirar.':'Modelo 3D del edificio');if(grid)grid.visible=!view&&mode==='3d';render();}
@@ -88,7 +88,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
     const border:number[]=[];const edge=(a:number[],b:number[])=>border.push(...a,...b);
     for(const z of [-w.thickness/2,w.thickness/2]){edge([o.from,o.bottom,z],[o.from,o.top,z]);edge([o.to,o.bottom,z],[o.to,o.top,z]);if(o.top<w.height)edge([o.from,o.top,z],[o.to,o.top,z]);if(o.bottom>0)edge([o.from,o.bottom,z],[o.to,o.bottom,z]);}
     const outline=new THREE.BufferGeometry();outline.setAttribute('position',new THREE.Float32BufferAttribute(border,3));wall.add(new THREE.LineSegments(outline,edgeMaterial));
-    const plane=new THREE.Mesh(new THREE.PlaneGeometry(o.to-o.from,o.top-o.bottom),new THREE.MeshBasicMaterial({color:'#a8c7c5',side:THREE.DoubleSide,transparent:true,opacity:o.kind==='window'?.18:0,depthWrite:false}));plane.position.set((o.from+o.to)/2,(o.bottom+o.top)/2,0);plane.userData.selection=selection(o.id);wall.add(plane);selectable.push(plane);
+    const plane=new THREE.Mesh(new THREE.PlaneGeometry(o.to-o.from,o.top-o.bottom),new THREE.MeshBasicMaterial({color:'#a8c7c5',side:THREE.DoubleSide,transparent:true,opacity:o.kind==='window'?.18:0,depthWrite:false}));plane.position.set((o.from+o.to)/2,(o.bottom+o.top)/2,0);plane.userData.selection=selection(o.id);plane.userData.cameraObstacle=o.kind!=='door';wall.add(plane);selectable.push(plane);
    }
   }
   }

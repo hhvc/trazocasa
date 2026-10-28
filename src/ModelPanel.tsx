@@ -58,7 +58,7 @@ export default function ModelPanel({building,plan,onChange,onLevel,onPerson,onFu
  useEffect(()=>{api.current?.update(model);},[model]);
  useEffect(()=>{api.current?.setObserver(eyes);if(observer&&!eyes)setObserver(null);},[eyes?.x,eyes?.y,eyes?.z,eyes?.yaw]);
  function stopWalking(){api.current?.stopWalk();setWalking(null);}
- useEffect(()=>{if(!walking)return;try{api.current?.setWalk(walking.world,setWalkProgress);}catch{setError('No se pudo iniciar el recorrido. Volvé a seleccionar la persona.');setWalking(null);}return ()=>api.current?.stopWalk();},[walking]);
+ useEffect(()=>{if(!walking)return;try{api.current?.setWalk(walking.world,setWalkProgress);}catch(error){console.error('No se pudo iniciar el recorrido 3D.',error);api.current?.stopWalk();setError('No se pudo iniciar el recorrido. Volvé a seleccionar la persona.');setWalking(null);}return ()=>api.current?.stopWalk();},[walking]);
  useEffect(()=>{api.current?.walkMode(walkMode);},[walkMode,walking]);
  useEffect(()=>{if(walking&&walking.revision!==building)stopWalking();},[building]);
  function stopObserving(){stopWalking();setObserver(null);api.current?.setObserver(null);}

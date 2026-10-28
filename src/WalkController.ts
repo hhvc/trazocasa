@@ -9,10 +9,10 @@ export type WalkProgress={distance:number;blocked:boolean};
 export type WalkClock={request:(cb:(time:number)=>void)=>number;cancel:(id:number)=>void};
 const keys:Record<string,WalkAction>={KeyW:'forward',ArrowUp:'forward',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right'};
 /** The frame loop exists only while walking. Inputs are released on blur, hide and disposal. */
-export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,avatar:ReturnType<typeof createWalkingPerson>,obstacles:Object3D[],render:()=>void,report:(p:WalkProgress)=>void,clock:WalkClock={request:requestAnimationFrame,cancel:cancelAnimationFrame}){
+export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,avatar:ReturnType<typeof createWalkingPerson>,obstacles:Object3D[],render:()=>void,report:(p:WalkProgress)=>void,clock:WalkClock={request:cb=>requestAnimationFrame(cb),cancel:id=>cancelAnimationFrame(id)}){
  const camera=new PerspectiveCamera(65,1,.02,6000),direction=new Vector3(),target=new Vector3(),desired=new Vector3(),ray=new Raycaster();
  const keyboard=new Set<string>(),touch=new Set<WalkAction>(),windowTarget=canvas.ownerDocument.defaultView!,documentTarget=canvas.ownerDocument;
- let position={...world.start},yaw=world.item.rotation*Math.PI/180,pitch=-.1,mode:WalkCameraMode='third',distance=0,closed=false,frame=0,previous:number|undefined,drag:{id:number;x:number;y:number}|null=null,lastReport=-1,lastBlocked=false;
+ let position={...world.start},yaw=world.item.rotation*Math.PI/180,pitch=-.1,mode:WalkCameraMode='third',distance=0,closed=false,frame=0,previous:number|undefined,drag:{id:number;x:number;y:number}|null=null,lastReport=-1,lastBlocked=false,wasMoving=false;
  const cursor=canvas.style.cursor;canvas.style.cursor='grab';
  function cameraUpdate(){
   direction.set(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
@@ -43,10 +43,10 @@ export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,av
   if(closed)return;const dt=previous===undefined?0:(time-previous)/1000;previous=time;
   const pressed=(action:WalkAction)=>touch.has(action)||[...keyboard].some(k=>keys[k]===action);
   const f=Number(pressed('forward'))-Number(pressed('back')),r=Number(pressed('right'))-Number(pressed('left'));
-  const delta=walkDelta(yaw,f,r,dt),next=moveWalker(world,position,delta.x,delta.z),travel=Math.hypot(next.x-position.x,next.z-position.z);position=next;distance+=travel;
-  const blocked=!!(f||r)&&dt>0&&travel<Math.hypot(delta.x,delta.z)*.25;avatar.pose(distance,travel>.0001);cameraUpdate();
+  const delta=walkDelta(yaw,f,r,dt),next=f||r?moveWalker(world,position,delta.x,delta.z):position,travel=Math.hypot(next.x-position.x,next.z-position.z);position=next;distance+=travel;
+  const blocked=!!(f||r)&&dt>0&&travel<Math.hypot(delta.x,delta.z)*.25;const moving=travel>.0001;avatar.pose(distance,moving);if(travel>0)cameraUpdate();
   if(Math.floor(distance*10)!==lastReport||blocked!==lastBlocked){lastReport=Math.floor(distance*10);lastBlocked=blocked;report({distance,blocked});}
-  render();frame=clock.request(tick);
+  if(travel>0||moving!==wasMoving)render();wasMoving=moving;frame=clock.request(tick);
  }
  const events={pointerdown:down,pointermove:move,pointerup:up,pointercancel:up,lostpointercapture:up,keydown:keyDown,blur:pause};
  for(const [name,handler] of Object.entries(events))canvas.addEventListener(name,handler as EventListener);

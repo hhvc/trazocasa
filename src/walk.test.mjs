@@ -19,7 +19,10 @@ const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} != ${b}`);
 test('a person walks through a fitting door but stops at solid walls, low lintels and windows',()=>{
  const base={walls:[wall]},door={id:'door',wallId:'wall',kind:'door',t:.5,width:.9,height:2.1};
  const clear=world(project({...base,openings:[door]}));assert.ok(walk(clear,clear.start,0,-.05).z<-.9);
- for(const openings of [[],[{...door,height:1.4}],[{...door,kind:'window',sill:0}],[{...door,width:.4}]]){const w=world(project({...base,openings}));assert.ok(walk(w,w.start,0,-.05).z>=w.radius+.049);}
+ for(const openings of [[],[{...door,height:1.4}],[{...door,kind:'window',sill:0}]]){const w=world(project({...base,openings}));assert.ok(walk(w,w.start,0,-.05).z>=w.radius+.049,JSON.stringify(openings));}
+ // A round body can enter partway into a narrow opening before touching its jambs.
+ const narrow=world(project({...base,openings:[{...door,width:.4}]})),stop=walk(narrow,narrow.start,0,-.05),contact=.05+Math.sqrt(narrow.radius**2-.2**2);
+ assert.ok(stop.z>=contact-.001&&stop.z<contact+.026);assert.ok(narrow.canOccupy(stop));assert.ok(!narrow.canOccupy({x:3,z:0}));
 });
 test('thin rotated walls block large moves and allow sliding without penetrating corners',()=>{
  const w=world(project({walls:[{...wall,a:{x:2,y:-4},b:{x:2,y:4}}]}));

@@ -38,7 +38,8 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
   const p={x:pos.x,y:pos.z};if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||!supported(p))return false;
   for(const b of blocks){if(b.bottom>=base+height-epsilon)continue;const dx=p.x-b.x,dz=p.y-b.z,x=dx*b.cos+dz*b.sin,z=-dx*b.sin+dz*b.cos,qx=clamp(x,-b.halfW,b.halfW),qz=clamp(z,-b.halfD,b.halfD);if(Math.hypot(x-qx,z-qz)>=radius)continue;const q={x:b.x+qx*b.cos-qz*b.sin,y:b.z+qx*b.sin+qz*b.cos};if(b.top(q,qx)>base+epsilon)return false;}
   for(const plate of plates){
-   for(const q of contacts(p,radius,plate.points)){if(plate.holes.some(h=>inside(q,h)))continue;const bottom=plate.level+(plate.planes?Math.min(...plate.planes.map(v=>v.a*q.x+v.b*q.y+v.c)):plate.bottom),top=bottom+plate.top-plate.bottom;if(bottom<base+height-epsilon&&top>base+epsilon)return false;}
+   const footprint=[...contacts(p,radius,plate.points),...Array.from({length:24},(_,i)=>({x:p.x+Math.cos(i*Math.PI/12)*radius,y:p.y+Math.sin(i*Math.PI/12)*radius})).filter(q=>inside(q,plate.points))];
+   for(const q of footprint){if(plate.holes.some(h=>inside(q,h)))continue;const bottom=plate.level+(plate.planes?Math.min(...plate.planes.map(v=>v.a*q.x+v.b*q.y+v.c)):plate.bottom),top=bottom+plate.top-plate.bottom;if(bottom<base+height-epsilon&&top>base+epsilon)return false;}
   }
   return true;
  }
