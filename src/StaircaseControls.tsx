@@ -1,6 +1,6 @@
 import type { StaircaseFields } from './stairs';
 export function StaircaseControls({value,onChange,error,width,depth}: {value:StaircaseFields;onChange:(value:StaircaseFields)=>void;error:string;width?:number;depth?:number}) {
-  const fields=[['width','Ancho de los tramos (m)'],['firstLength','Largo del primer tramo (m)'],['secondLength','Largo del segundo tramo (m)'],['landingDepth','Fondo del descanso (m)']] as const;
+  const fields=[['rise','Altura total a subir (m)'],['width','Ancho de los tramos (m)'],['firstLength','Largo del primer tramo (m)'],['secondLength','Largo del segundo tramo (m)'],['landingDepth','Fondo del descanso (m)']] as const;
   return <div className="staircase-tool">
     <strong>Escalera prearmada</strong>
     <div className="room-modes">{(['L','U'] as const).map(shape=><button key={shape} aria-pressed={value.shape===shape} onClick={()=>onChange({...value,shape})}>Escalera en {shape}</button>)}</div>
@@ -10,6 +10,6 @@ export function StaircaseControls({value,onChange,error,width,depth}: {value:Sta
       <label>Giro del conjunto<select aria-label="Giro del conjunto" value={value.rotation} onChange={e=>onChange({...value,rotation:Number(e.target.value) as StaircaseFields['rotation']})}>{[0,90,180,270].map(n=><option key={n} value={n}>{n}°</option>)}</select></label>
     </div>
     {error?<p role="status" className="staircase-error">{error}</p>:<p>Huella total: <b>{width?.toFixed(2)} × {depth?.toFixed(2)} m</b>. Tocá el plano para colocar las tres piezas agrupadas.</p>}
-    <small>Después podés mover, girar o duplicar el grupo. Desagrupá para editar cada pieza. Bosquejo 2D, sin cálculo de altura ni peldaños.</small>
+    <small>Después podés mover, girar o duplicar el grupo. Desagrupá para editar cada pieza. La altura se reparte entre ambos tramos. En 3D podés ajustar cada pieza. Prepará el hueco de la losa superior para recorrerla.</small>
   </div>;
 }

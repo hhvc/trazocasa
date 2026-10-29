@@ -13,7 +13,7 @@ const modelUrl=await moduleUrl('./model.ts');
 const {emptyPlan,validatePlan,validateBuilding,buildingFromPlan,addFloor,floorLevels,furnitureCatalog,furnitureCorners}=await import(modelUrl);
 const heightsUrl=await moduleUrl('./furnitureHeights.ts');
 const {isFurniture3D,furnitureHeight}=await import(heightsUrl);
-const partsUrl=await moduleUrl('./furniture3d.ts');
+const partsUrl=await moduleUrl('./furniture3d.ts',{'./stairGeometry':await moduleUrl('./stairGeometry.ts')});
 const {furnitureParts}=await import(partsUrl);
 const volumesUrl=await moduleUrl('./model3d.ts',{'./model':modelUrl});
 const {buildingVolumes}=await import(volumesUrl);
@@ -28,7 +28,7 @@ function dispose(group){const geometry=new Set(),materials=new Set();group.trave
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-5,`${a} ≠ ${b}`);
 
 test('all supported catalog objects produce finite geometry within their 2D footprints and total heights',()=>{
- assert.equal(furnitureCatalog.filter(f=>isFurniture3D(f.kind)).length,30);
+ assert.equal(furnitureCatalog.filter(f=>isFurniture3D(f.kind)).length,32);
  for(const f of furnitureCatalog.filter(f=>isFurniture3D(f.kind))){
   const source=item(f.kind,{width:1,depth:1,height:1});
   assert.deepEqual(furnitureParts(f.kind),furnitureParts(f.kind));
@@ -96,4 +96,18 @@ test('articulated crouching matches collision height, keeps feet above the floor
  actor.pose(0,false,false,true);actor.root.updateMatrixWorld(true);assert.ok(new Box3().setFromObject(actor.root).min.y>=0);
  const again=new Set();actor.root.traverse(o=>{if(o.geometry)again.add(o.geometry);});assert.deepEqual(again,geometries);
  let disposed=0;for(const resource of [...geometries,...materials])resource.addEventListener('dispose',()=>disposed++);actor.dispose();assert.equal(disposed,geometries.size+materials.size);finishes.dispose();
+});
+
+test('configured stairs use actual rise for treads, retain direction and remain selectable on upper floors',()=>{
+ for(const height of [.4,1.5,3.2]){
+  const source=item('stairs',{height,elevation:.7,rotation:90,width:1.2,depth:4}),s=scene(project([source]));
+  const mesh=s.selectable[0],n=Math.ceil(height/.18),matrix=new Matrix4(),p=new Vector3();assert.equal(mesh.count,n);
+  for(let i=0;i<n;i++){mesh.getMatrixAt(i,matrix);p.set(0,.5,0).applyMatrix4(matrix);close(p.y,.7+height*(i+1)/n);close(p.x,-2+(i+.5)*4/n);close(p.z,0);assert.equal(mesh.userData.selections[i].elementId,source.id);}
+  dispose(s.group);
+ }
+});
+test('stairs and landing heights round trip and old symbols remain opt-in',()=>{
+ const items=[item('stairs',{height:1.5,elevation:0}),item('stairLanding',{id:'rest',height:.2,elevation:1.3}),item('stairs',{id:'second',height:1.5,elevation:1.5})],b=project(items);
+ assert.deepEqual(validateBuilding(JSON.parse(JSON.stringify(b))),b);assert.equal(buildingVolumes(b,options)[0].furniture.length,3);
+ assert.equal(buildingVolumes(project([item('stairs')]),options)[0].furniture.length,0);
 });

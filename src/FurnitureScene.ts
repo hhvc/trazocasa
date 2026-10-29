@@ -27,10 +27,11 @@ export function unitGeometry(shape:FurniturePart['shape']):THREE.BufferGeometry{
 export function addFurnitureScene(group:THREE.Group,model:BuildingVolumes,finishes:FinishLibrary=createFinishLibrary()){
  type Entry={matrix:THREE.Matrix4;color:THREE.Color;selection:ModelSelection;key:string};
  const batches=new Map<string,{shape:FurniturePart['shape'];finish:FinishKind;entries:Entry[]}>();
- const cache=new Map<Furniture['kind'],FurniturePart[]>();
+ const cache=new Map<string,FurniturePart[]>();
  for(const floor of model)for(const item of floor.furniture){
   if(!isFurniture3D(item.kind))continue;
-  const parts=cache.get(item.kind)??furnitureParts(item.kind);cache.set(item.kind,parts);
+  const cacheKey=item.kind==='stairs'?item.kind+'-'+furnitureHeight(item):item.kind;
+  const parts=cache.get(cacheKey)??furnitureParts(item.kind,furnitureHeight(item));cache.set(cacheKey,parts);
   const root=furnitureMatrix(item,floor.elevation),selection={floorId:floor.id,elementId:item.id},key=modelSelectionKey(selection);
   const primary=furnitureFinishColors(item.kind);
   for(const part of parts){const appearance=primary.includes(part.color)?item.appearance:undefined,finish=appearance?.finish??'paint',batchKey=part.shape+'-'+finish;

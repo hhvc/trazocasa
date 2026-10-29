@@ -14,7 +14,7 @@ const appearanceUrl=await moduleUrl('./appearance.ts'),finishesUrl=await moduleU
 const {withAppearance,targetAppearance,furnitureFinishColors}=await import(appearanceUrl);
 const {finishPixels,createFinishLibrary,finishMaterial,finishUV}=await import(finishesUrl);
 const volumesUrl=await moduleUrl('./model3d.ts',{'./model':modelUrl}),{buildingVolumes}=await import(volumesUrl);
-const heightsUrl=await moduleUrl('./furnitureHeights.ts'),partsUrl=await moduleUrl('./furniture3d.ts');
+const heightsUrl=await moduleUrl('./furnitureHeights.ts'),partsUrl=await moduleUrl('./furniture3d.ts',{'./stairGeometry':await moduleUrl('./stairGeometry.ts')});
 const sceneUrl=await moduleUrl('./FurnitureScene.ts',{'three':three,'./model3d':volumesUrl,'./furnitureHeights':heightsUrl,'./furniture3d':partsUrl,'./appearance':appearanceUrl,'./finishMaterials':finishesUrl});
 const {addFurnitureScene}=await import(sceneUrl);
 const geometryUrl=await moduleUrl('./plateGeometry.ts',{'three':three}),{plateGeometry,roofGeometry,wallSolidGeometry}=await import(geometryUrl);

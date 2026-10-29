@@ -7,7 +7,7 @@ import type {createWalkingPerson} from './WalkingPerson';
 export type WalkCameraMode='first'|'third';
 export type WalkAction='forward'|'back'|'left'|'right';
 export type WalkAbility='crouch'|'jump';
-export type WalkProgress={distance:number;blocked:boolean;crouched:boolean;grounded:boolean;standBlocked:boolean};
+export type WalkProgress={elevation:number;distance:number;blocked:boolean;crouched:boolean;grounded:boolean;standBlocked:boolean};
 export type WalkClock={request:(cb:(time:number)=>void)=>number;cancel:(id:number)=>void};
 const keys:Record<string,WalkAction>={KeyW:'forward',ArrowUp:'forward',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right'};
 /** The frame loop exists only while walking. Inputs are released on blur, hide and disposal. */
@@ -38,7 +38,7 @@ export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,av
  function down(e:PointerEvent){if(!e.isPrimary||e.button!==0||drag)return;canvas.focus({preventScroll:true});drag={id:e.pointerId,x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);}
  function move(e:PointerEvent){if(drag?.id!==e.pointerId)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag={id:e.pointerId,x:e.clientX,y:e.clientY};look(dx*.004,-dy*.004);}
  function up(e:PointerEvent){if(drag?.id===e.pointerId)stopDrag();}
- function progress(blocked=false){const value={distance,blocked,crouched:motion.crouched,grounded:motion.grounded,standBlocked:motion.standBlocked},key=JSON.stringify({...value,distance:Math.floor(distance*10)});if(key!==lastReport){lastReport=key;report(value);}}
+ function progress(blocked=false){const value={elevation:motion.feet,distance,blocked,crouched:motion.crouched,grounded:motion.grounded,standBlocked:motion.standBlocked},key=JSON.stringify({...value,elevation:Math.round(motion.feet*10),distance:Math.floor(distance*10)});if(key!==lastReport){lastReport=key;report(value);}}
  function act(action:WalkAbility){motion=action==='crouch'?toggleCrouch(world,motion):jump(motion);avatar.pose(distance,false,motion.crouched,!motion.grounded);cameraUpdate();progress();render();}
  function keyDown(e:KeyboardEvent){if(e.ctrlKey||e.metaKey||e.altKey)return;if(e.code==='KeyC'||e.code==='Space'){e.preventDefault();if(!e.repeat)act(e.code==='KeyC'?'crouch':'jump');}else if(keys[e.code]){e.preventDefault();keyboard.add(e.code);}else if(e.code==='Home'){e.preventDefault();reset();}}
  function keyUp(e:KeyboardEvent){keyboard.delete(e.code);}

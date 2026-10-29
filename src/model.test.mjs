@@ -524,3 +524,8 @@ test('view guide settings roundtrip and deleting the reference floor preserves d
  assert.deepEqual(removed.views[0].plan,v.plan);
  for(const guides of [{...v.guides,floorId:'missing'},{...v.guides,levels:[Infinity]},{...v.guides,levels:[101]},{...v.guides,visible:'true'}])assert.throws(()=>validateBuilding({...b,views:[{...v,guides}]}));
 });
+
+test('L and U presets assign connected heights without changing their footprint',()=>{
+ for(const shape of ['L','U']){const items=staircasePieces(stairOptions({shape,rise:3.4}),{x:0,y:0});closeTo(items[0].height,1.7);closeTo(items[0].elevation,0);closeTo(items[1].elevation+items[1].height,1.7);closeTo(items[2].elevation,1.7);closeTo(items[2].elevation+items[2].height,3.4);}
+ for(const rise of ['', '0.3','21','NaN'])assert.throws(()=>parseStaircase({...defaultStaircase,rise}));
+});

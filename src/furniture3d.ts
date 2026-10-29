@@ -1,9 +1,10 @@
+import {stairStepCount} from './stairGeometry';
 import type {Furniture3DKind} from './furnitureHeights';
 export type Triple=[number,number,number];
 export type FurniturePart={shape:'box'|'cylinder'|'sphere'|'ring';position:Triple;scale:Triple;rotation?:Triple;color:string};
 const wood='#bda789',cloth='#b6c5b7',light='#eeeade',white='#f1f0e8',metal='#74857e',dark='#45554e',glass='#9fbdb9',leaf='#94ad7b',soil='#82725c';
 /** X/Z in [-.5,.5], Y in [0,1]. Front faces +Z, matching the 2D glyphs. */
-export function furnitureParts(kind:Furniture3DKind):FurniturePart[]{
+export function furnitureParts(kind:Furniture3DKind,height=3):FurniturePart[]{
  const parts:FurniturePart[]=[];
  const part=(shape:FurniturePart['shape'],position:Triple,scale:Triple,color=light,rotation?:Triple)=>parts.push({shape,position,scale,color,...(rotation?{rotation}:{})});
  const box=(x:number,y:number,z:number,w:number,h:number,d:number,color=light)=>part('box',[x,y,z],[w,h,d],color);
@@ -14,6 +15,8 @@ export function furnitureParts(kind:Furniture3DKind):FurniturePart[]{
  const handle=(x:number,y:number,z=.487,w=.22)=>box(x,y,z,w,.025,.025,metal);
  const basin=(x:number,y:number,z:number,w:number,d:number)=>{box(x,y-.055,z,w,.06,d,glass);ring(x,y,z,w,.09,d,white);};
  switch(kind){
+ case 'stairs':{const n=stairStepCount(height);for(let i=0;i<n;i++)box(0,(i+1)/n/2,.5-(i+.5)/n,1,(i+1)/n,1/n,light);break;}
+ case 'stairLanding':box(0,.5,0,1,1,1,light);break;
  case 'person':{
   const shirt='#7297ab',skin='#d2b9a1',pants='#596961';
   for(const x of [-.17,.17]){box(x,.035,.1,.26,.07,.62,dark);cyl(x,.28,0,.22,.42,.45,pants);}

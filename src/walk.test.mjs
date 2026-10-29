@@ -7,7 +7,7 @@ async function moduleUrl(file,deps={}){let source=ts.transpileModule(await readF
 const modelUrl=await moduleUrl('./model.ts'),heightsUrl=await moduleUrl('./furnitureHeights.ts');
 const {emptyPlan,validatePlan,validateBuilding,buildingFromPlan,addFloor}=await import(modelUrl);
 const volumesUrl=await moduleUrl('./model3d.ts',{'./model':modelUrl}),{buildingVolumes}=await import(volumesUrl);
-const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./furnitureHeights':heightsUrl}),{createWalkWorld,moveWalker,walkDelta}=await import(physicsUrl);
+const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./furnitureHeights':heightsUrl,'./stairGeometry':await moduleUrl('./stairGeometry.ts')}),{createWalkWorld,moveWalker,walkDelta}=await import(physicsUrl);
 const motionUrl=await moduleUrl('./walkMotion.ts',{'./walkPhysics':physicsUrl});
 const {advanceWalk,initialMotion,toggleCrouch,jump,verticalStep,bodyHeight}=await import(motionUrl);
 const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
@@ -135,3 +135,57 @@ test('crouched movement is slower and focus loss preserves a safe crouched postu
 });
 
 test('a resting grounded figure avoids repeated collision queries',()=>{const w=world();let queries=0;const original=w.verticalIntervals;w.verticalIntervals=p=>{queries++;return original(p);};let m=initialMotion(w);for(let i=0;i<60;i++)m=advanceWalk(w,m,0,0,1/60).motion;assert.equal(queries,0);close(m.feet,w.base);});
+
+const flight=(extra={})=>({id:'stairs',kind:'stairs',x:0,y:0,width:1.2,depth:6,rotation:0,height:3,elevation:0,...extra});
+function stairProject({hole=true,startAbove=false,rotation=0,upper=true}={}){
+ const rotate=({x,y})=>({x:x*Math.cos(rotation*Math.PI/180)-y*Math.sin(rotation*Math.PI/180),y:x*Math.sin(rotation*Math.PI/180)+y*Math.cos(rotation*Math.PI/180)});
+ const p=person({...rotate({x:0,y:startAbove?-4:4}),rotation:(180+rotation)%360});
+ const lower=validatePlan({...emptyPlan(),furniture:[flight({rotation}),...(!startAbove?[p]:[])]});
+ const top=validatePlan({...emptyPlan(),furniture:startAbove?[p]:[],surfaces:[{id:'upper',name:'Planta alta',points:rectangle(-5,-5,10,10),slab:{thickness:.2},holes:hole?[{id:'opening',name:'Escalera',target:'slab',points:rectangle(-.8,-2.99,1.6,7).map(rotate)}]:[]}]});
+ const b=buildingFromPlan(lower);
+ return validateBuilding({...b,floors:[{...b.floors[0],elevation:0},...(upper?[{id:'upper-floor',name:'Planta alta',elevation:3,plan:top}]:[])]});
+}
+function advanceTo(w,m,x,z,dt=.025){
+ for(let n=0;n<1500&&Math.hypot(x-m.position.x,z-m.position.z)>.003;n++){const d=Math.hypot(x-m.position.x,z-m.position.z),s=Math.min(d,1.4*dt);m=advanceWalk(w,m,(x-m.position.x)/d*s,(z-m.position.z)/d*s,dt).motion;}
+ return m;
+}
+test('straight stair connects two floors in both directions, including oblique rotations',()=>{
+ for(const rotation of [0,30,45,90,180,270])for(const dt of [.016,.05]){
+  const b=stairProject({rotation}),before=JSON.stringify(b),w=world(b),a=rotation*Math.PI/180;
+  let m=advanceTo(w,initialMotion(w),4*Math.sin(a),-4*Math.cos(a),dt);
+  assert.ok(Math.hypot(m.position.x-4*Math.sin(a),m.position.z+4*Math.cos(a))<.01,JSON.stringify({rotation,m}));close(m.feet,3);assert.ok(m.grounded);
+  m=advanceTo(w,m,-4*Math.sin(a),4*Math.cos(a),dt);close(m.feet,0);assert.ok(m.grounded);assert.equal(JSON.stringify(b),before);
+ }
+});
+test('a tour can start upstairs and descend below its original spawn floor',()=>{
+ const w=world(stairProject({startAbove:true}),1),m=advanceTo(w,initialMotion(w),0,4);close(m.feet,0);assert.ok(m.position.z>3.9);assert.ok(m.grounded);
+});
+test('an uncut upper slab blocks ascent and a disconnected stair cannot leave its top',()=>{
+ const blocked=world(stairProject({hole:false})),m=advanceTo(blocked,initialMotion(blocked),0,-4);assert.ok(m.feet+blocked.height<=2.801);assert.ok(m.position.z>-.5);
+ const w=world(stairProject({upper:false})),top=advanceTo(w,initialMotion(w),0,-4);assert.ok(top.position.z>=-3+w.radius-.001);assert.ok(top.feet>2.7);assert.ok(top.grounded);
+ const side=advanceTo(w,top,3,top.position.z);assert.ok(side.position.x<=.6-w.radius+.001);assert.ok(side.grounded);
+});
+test('nearby furniture cannot be climbed automatically and stair headroom respects crouching',()=>{
+ const p=person({x:0,y:1}),w=world(project({furniture:[p,{id:'box',kind:'nightstand',x:0,y:0,width:1.2,depth:1,height:.15,rotation:0}]},p));
+ const stop=advanceTo(w,initialMotion(w),0,-1);close(stop.feet,0);assert.ok(stop.position.z>=.5+w.radius-.001);
+ const b=stairProject({hole:false}),low=world(b),standing=advanceTo(low,initialMotion(low),0,-4),crouched=advanceTo(low,toggleCrouch(low,initialMotion(low)),0,-4);
+ assert.ok(crouched.feet>standing.feet+.3);assert.ok(crouched.feet+bodyHeight(low,crouched)<=2.801);
+});
+test('jumping and resetting on stairs preserve support without passing the upper slab',()=>{
+ const b=stairProject(),w=world(b);let m=advanceTo(w,initialMotion(w),0,1);const feet=m.feet;
+ m=jump(m);for(let n=0;n<70;n++)m=advanceWalk(w,m,0,0,.02).motion;close(m.feet,feet);assert.ok(m.grounded);
+ const h=harness([],false,w);h.tick(0);h.controller.input('forward',true);for(let n=1;n<130;n++)h.tick(n*50);assert.ok(h.avatar.root.position.y>1);h.controller.reset();close(h.avatar.root.position.y,0);close(h.avatar.root.position.z,4);h.controller.dispose();
+});
+const groupsUrl=await moduleUrl('./groups.ts',{'./model':modelUrl});
+const {staircasePieces}=await import(await moduleUrl('./stairs.ts',{'./model':modelUrl,'./groups':groupsUrl}));
+test('L and U flights join through their landings, including mirrored and rotated layouts',()=>{
+ for(const shape of ['L','U'])for(const side of ['left','right'])for(const rotation of [0,90,180,270]){
+  const pieces=staircasePieces({shape,side,rotation,width:1.2,firstLength:3,secondLength:3,landingDepth:1.4,gap:.4,rise:3},{x:0,y:0});
+  const [first,landing,last]=pieces,point=(item,d)=>({x:item.x-d*Math.sin(item.rotation*Math.PI/180),y:item.y+d*Math.cos(item.rotation*Math.PI/180)}),start=point(first,first.depth/2+.6),end=point(last,-last.depth/2+.35);
+  const p=person({...start}),w=world(project({furniture:[p,...pieces]},p));let m=initialMotion(w);
+  const onLanding=point(first,-first.depth/2-landing.depth/2);
+  m=advanceTo(w,m,onLanding.x,onLanding.y);assert.ok(Math.abs(m.feet-1.5)<.001,JSON.stringify({shape,side,rotation,m}));
+  const lastStart=point(last,last.depth/2+.5);m=advanceTo(w,m,lastStart.x,lastStart.y);m=advanceTo(w,m,end.x,end.y);assert.ok(m.feet>=2.8,JSON.stringify({shape,side,rotation,m}));
+  m=advanceTo(w,m,lastStart.x,lastStart.y);m=advanceTo(w,m,onLanding.x,onLanding.y);m=advanceTo(w,m,start.x,start.y);close(m.feet,0);assert.ok(Math.hypot(m.position.x-start.x,m.position.z-start.y)<.01);
+ }
+});

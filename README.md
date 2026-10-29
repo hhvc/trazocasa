@@ -124,7 +124,7 @@ El selector sobre el lienzo cambia de planta. El botón + abre la administració
 
 El botón **Inferior** muestra paredes y escaleras de la planta inmediatamente anterior como referencia tenue, sin edición ni exportación. La vista conserva posición y zoom al cambiar de planta; Encuadrar plano ajusta la planta activa.
 
-En Muebles se incorpora **Escalera recta**, inicialmente 1 × 3 m, con ancho, largo (Fondo), giro y duplicado editables. La flecha indica subida. Es un símbolo 2D: el número de peldaños dibujados es ilustrativo, sin cálculo de altura, huella, contrahuella, descansos, huecos o conexión estructural entre plantas. Colocá su representación en cada piso que la necesite.
+En Muebles se incorpora **Escalera recta**, inicialmente 1 × 3 m, con ancho, largo (Fondo), giro y duplicado editables. La flecha indica subida. El símbolo 2D conserva peldaños ilustrativos. Para darle volumen y recorrerlo, seleccioná la pieza en las propiedades 3D y aplicá su nivel de arranque y altura a subir (ver Escaleras 3D y recorrido entre plantas). Colocá cada tramo una sola vez, en su planta de arranque.
 
 El formato v7 guarda todas las plantas y la selección activa. Los archivos v1–v6 se migran a Planta baja conservando sus datos. El contenido de cada planta utiliza el esquema de geometría v6. El historial es del proyecto completo: deshacer/rehacer restaura ediciones y plantas eliminadas. Cambiar de planta por sí solo no agrega un paso al historial. Al crear un proyecto nuevo se reemplaza el proyecto completo, recuperable con Deshacer.
 
@@ -133,7 +133,7 @@ Guardar archivo y autoguardado incluyen todas las plantas; SVG/PNG exportan úni
 
 ### Descanso de escalera
 
-En Muebles, Descanso de escalera agrega una plataforma rectangular de 1 × 1 m. Su ancho y largo se editan independientemente (0,20 a 10 m); admite movimiento, giro y duplicado. Para una L, combiná dos tramos rectos a 90° junto al descanso; para una U, usá dos tramos paralelos con subida opuesta y un descanso que abarque ambos anchos. Las piezas se colocan manualmente y siguen siendo independientes. El descanso también aparece en la referencia Inferior y se guarda y exporta como los demás elementos. Se mantiene el formato v7; las versiones anteriores del editor no reconocen este nuevo tipo.
+En Muebles, Descanso de escalera agrega una plataforma rectangular de 1 × 1 m. Su ancho y largo se editan independientemente (0,20 a 10 m); admite movimiento, giro y duplicado. Para una L, combiná dos tramos rectos a 90° junto al descanso; para una U, usá dos tramos paralelos con subida opuesta y un descanso que abarque ambos anchos. Las piezas se colocan manualmente y siguen siendo independientes. En las propiedades 3D se definen el nivel superior y el espesor del descanso. El descanso también aparece en la referencia Inferior y se guarda y exporta como los demás elementos. Se mantiene el formato v7; las versiones anteriores del editor no reconocen este nuevo tipo.
 
 ## Alineación de elementos
 
@@ -151,7 +151,7 @@ Al arrastrar varias piezas, la alineación usa el rectángulo del conjunto y exc
 
 ## Escaleras prearmadas (0.12)
 
-La herramienta **Escaleras (E)** inserta escaleras en L o U como un grupo de dos tramos rectos y un descanso. Permite indicar ancho común, largos independientes, fondo del descanso, sentido al subir y giro de 0°, 90°, 180° o 270°. En U se puede agregar una separación entre tramos: el descanso cubre ambos anchos y la separación. En L el ancho del descanso coincide con el tramo y su fondo puede ser mayor.
+La herramienta **Escaleras (E)** inserta escaleras en L o U como un grupo de dos tramos rectos y un descanso. Permite indicar altura total a subir, ancho común, largos independientes, fondo del descanso, sentido al subir y giro de 0°, 90°, 180° o 270°. La altura total (inicialmente 3 m) se reparte entre ambos tramos; el descanso de 20 cm de espesor queda a media altura. En U se puede agregar una separación entre tramos: el descanso cubre ambos anchos y la separación. En L el ancho del descanso coincide con el tramo y su fondo puede ser mayor.
 
 Las medidas de cada pieza van de 0,20 a 10 m. Para que las piezas encajen, el fondo del descanso debe ser al menos igual al ancho de los tramos; en U el ancho total no supera 10 m. Son límites del editor, no recomendaciones constructivas. La huella total se muestra antes de colocar y el puntero representa el centro de su rectángulo envolvente. La vista previa y el ajuste a elementos usan el conjunto completo.
 
@@ -332,7 +332,7 @@ Los huecos solo recortan los elementos activados del contorno y el destino elegi
 
 En 2D se muestran con borde discontinuo y nombre; el relleno de la superficie descuenta los huecos destinados a la losa. El inspector muestra **Losa neta** y **Cubierta neta**, descontando sus huecos respectivos. Las etiquetas de superficie y el resumen general conservan el área del contorno completo. Los huecos se conservan en archivos locales, autoguardado y copias de plantas completas; el visor 3D y la exportación PNG respetan los recortes.
 
-Pendientes: encuentros automáticos entre paños, escaleras 3D y cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
+Pendientes: encuentros automáticos entre paños y cortes. La cuadrícula de referencia se muestra en 3D; las fachadas la omiten. No es documentación constructiva ni un cálculo estructural.
 
 La visualización se procesa íntegramente en el navegador. Three.js se descarga como módulo separado al abrir el visor; requiere WebGL 2. Si no está disponible, se informa el problema y se puede continuar en 2D. El motor dibuja cuando cambia la escena o la cámara, sin una animación continua.
 
@@ -351,7 +351,7 @@ Los 29 objetos del catálogo (excepto escaleras y descansos) tienen volúmenes s
 - **Ocultar muebles / Mostrar muebles** afecta el visor y la exportación PNG, sin eliminar objetos ni modificar el plano. El visor admite proyectos que contienen solo muebles.
 - La altura admite 0,10 a 20 m y la elevación 0 a 20 m, con coma o punto decimal. Las alturas iniciales son orientativas; **Restablecer alturas iniciales** recupera el valor del catálogo y la base sobre el piso.
 
-Las alturas y elevaciones se guardan como campos opcionales en el formato existente y admiten Deshacer/Rehacer, copias de plantas y archivos locales. No cambian los niveles de piso. Las escaleras y descansos siguen siendo símbolos 2D hasta definir su desarrollo vertical. No se calculan colisiones, encuentros entre muebles ni dimensiones de fabricantes.
+Las alturas y elevaciones se guardan como campos opcionales en el formato existente y admiten Deshacer/Rehacer, copias de plantas y archivos locales. No cambian los niveles de piso. Las escaleras y descansos de archivos anteriores conservan su símbolo 2D hasta aplicar sus alturas desde las propiedades 3D. No se calculan colisiones, encuentros entre muebles ni dimensiones de fabricantes.
 
 Las formas comparten geometrías y materiales mediante instancias; no se descargan modelos externos y el renderizado permanece en el navegador. Pruebas: cobertura del catálogo, límites de los volúmenes, orientación, selección entre pisos, persistencia, visibilidad y lotes de 500 objetos.
 
@@ -361,7 +361,7 @@ En **Ver 3D**, seleccionar un muro, mueble, losa o cubierta y abrir **Propiedade
 
 Los cambios se previsualizan sin modificar el archivo ni el historial. **Aplicar acabado** confirma una edición; **Cancelar**, cambiar de elemento o salir de la pestaña descarta la prueba. Guardar y exportar requieren aplicar o cancelar la vista previa. **Restablecer aspecto original** elimina el acabado personalizado. Deshacer/Rehacer recupera los cambios aplicados.
 
-La losa y la cubierta de un mismo contorno tienen acabados independientes. En un muro se cambia el elemento completo, incluidas ambas caras. En muebles se modifican las superficies principales: tapizado de sofás, cobertura de camas, cuerpo de muebles y vehículos, copa de árboles o maceta, según el objeto. Los vidrios, neumáticos y pequeños detalles conservan su aspecto. Las escaleras siguen siendo símbolos 2D.
+La losa y la cubierta de un mismo contorno tienen acabados independientes. En un muro se cambia el elemento completo, incluidas ambas caras. En muebles se modifican las superficies principales: tapizado de sofás, cobertura de camas, cuerpo de muebles y vehículos, copa de árboles o maceta, según el objeto. Los vidrios, neumáticos y pequeños detalles conservan su aspecto. Las escaleras con altura definida también admiten color y acabado.
 
 Los acabados se ven en el modelo 3D y su PNG. El bosquejo 2D conserva su estilo. Las texturas son patrones decorativos generados en el navegador; no representan el despiece de obra. La planta, los huecos, los niveles y las medidas permanecen iguales. No hay descargas de imágenes ni servicios nuevos.
 
@@ -385,12 +385,24 @@ En **Ver 3D**, seleccionar una persona y pulsar **Controlar persona**. El recorr
 
 El cuerpo tiene un radio acorde a la figura y camina a 1,4 m/s. Se comprueban muros, ancho y altura de puertas, ventanas, muebles, losas y cubiertas; la cámara en tercera persona se acerca al encontrar obstáculos. El recorrido activa los elementos visibles y suspende la edición hasta terminar. El mobiliario usa su caja exterior como obstáculo: es una aproximación conservadora para esta etapa.
 
-El recorrido se mantiene dentro de la planta elegida. En la primera planta hay suelo implícito fuera de los contornos; los huecos de las losas bloquean el paso. En plantas superiores se requieren losas bajo los pies y se detiene el movimiento en bordes y huecos. La figura debe comenzar en un lugar libre, apoyada sobre el piso. Las escaleras y la escalada aún no están disponibles; las acciones de agacharse y saltar se describen más abajo. La pérdida de foco o visibilidad detiene los controles y al salir se liberan la animación, eventos y recursos. No se agregaron dependencias ni servicios.
+El recorrido comienza en la planta elegida y muestra el edificio completo; puede cambiar de nivel a través de escaleras y descansos conectados. En la primera planta hay suelo implícito fuera de los contornos; los huecos de las losas bloquean el paso cuando no hay una escalera que aporte apoyo. En plantas superiores se requieren losas bajo los pies y se detiene el movimiento en bordes y huecos. La figura debe comenzar en un lugar libre, apoyada sobre el piso. Las escaleras se recorren caminando; la escalada aún no está disponible. Las acciones de agacharse y saltar se describen más abajo. La pérdida de foco o visibilidad detiene los controles y al salir se liberan la animación, eventos y recursos. No se agregaron dependencias ni servicios.
 
 ### Agacharse y saltar
 
 Durante **Controlar persona**, **C** o **Agacharse / Levantarse** cambia la postura. La altura baja al 70 % y la velocidad se reduce a la mitad. Las rodillas se flexionan y la cámara sigue la altura de los ojos. Si no hay espacio encima, permanece agachada y avisa; al salir del obstáculo, volver a pulsar para levantarse.
 
-**Espacio** o **Saltar** inicia un salto de aproximadamente 55 cm, con gravedad y control de techos. Se requiere estar de pie y apoyado; mantener la tecla no encadena saltos. Se puede aterrizar sobre un objeto bajo y bajar de él caminando. Se conservan los límites de la planta: los bordes y huecos de losas no se atraviesan, incluso al saltar. No hay escalada ni conexión por escaleras todavía.
+**Espacio** o **Saltar** inicia un salto de aproximadamente 55 cm, con gravedad y control de techos. Se requiere estar de pie y apoyado; mantener la tecla no encadena saltos. Se puede aterrizar sobre un objeto bajo y bajar de él caminando. Los bordes y huecos sin apoyo siguen bloqueados, incluso al saltar. Las escaleras permiten cambiar de planta; la escalada aún no está disponible.
 
 El mobiliario sigue usando su caja exterior para las colisiones: una mesa completa ocupa ese volumen, aunque el dibujo muestre espacio entre las patas. Las posturas y los saltos son temporales; **Volver al inicio** recupera la posición de pie sin modificar el proyecto.
+
+
+### Escaleras 3D y recorrido entre plantas
+
+- **Rectas existentes:** en Ver 3D → Propiedades → Elemento, elegir la escalera. Definir **Nivel de arranque del tramo** y **Altura a subir** y pulsar **Aplicar escalera 3D**. Los niveles son relativos al piso de la planta que contiene la pieza. **Usar nivel de la planta siguiente** prepara la altura de llegada; requiere aplicar el cambio.
+- **Descansos:** definir **Nivel superior del descanso** y **Espesor del descanso**. Por ejemplo, para unir dos tramos que suben 1,50 m cada uno: primer tramo 0 / 1,50; descanso a 1,50 con espesor 0,20; segundo tramo 1,50 / 1,50. Las piezas deben tocarse en planta.
+- **Nuevas L/U:** la herramienta Escaleras pide la altura total y coloca las tres piezas con niveles conectados. Ajustar esa altura a la diferencia real entre pisos; el valor inicial es 3 m. Las piezas de archivos anteriores conservan su representación 2D hasta aplicar alturas. **Dejar solo símbolo 2D** desactiva el volumen de una pieza.
+- Los peldaños 3D se distribuyen de forma uniforme, con cantidad automática para una contrahuella de hasta 18 cm. El inspector informa huella y contrahuella resultantes; son valores orientativos del modelo, sin validación constructiva ni normativa. Los tramos demasiado cortos o estrechos pueden impedir el paso de la persona.
+- En la planta superior, activar la losa y dibujar el hueco sobre los tramos que la atraviesan. La salida de la escalera debe tocar la losa a la misma altura y tener espacio libre para el cuerpo. Una losa o cubierta sin recorte bloquea el recorrido; ocultarlas no elimina la colisión. No se generan huecos automáticamente.
+- En **Controlar persona**, avanzar con WASD/flechas o los botones táctiles. La altura de los pies y la cámara siguen peldaños y descansos, al subir y al bajar. **Nivel** muestra la cota de los pies respecto del origen del edificio. **Volver al inicio** restaura la planta, posición y postura iniciales del recorrido.
+- Se comprueba el apoyo circular completo, los bordes, el ancho libre y el espacio para la cabeza. Solo se suben automáticamente desniveles arquitectónicos de hasta 22 cm; el mobiliario sigue requiriendo un salto. La escalera se modela maciza debajo de los peldaños y no permite pasar por debajo. No hay barandas, escalada, escaleras curvas ni apertura automática de puertas.
+- Las alturas y acabados se guardan en el archivo local con Deshacer/Rehacer. El recorrido sigue siendo temporal y no mueve la persona guardada. Todo se procesa en el navegador, sin dependencias ni servicios nuevos.

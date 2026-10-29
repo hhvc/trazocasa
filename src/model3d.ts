@@ -35,7 +35,7 @@ export function buildingVolumes(building:Building,options:ModelOptions){
     ...(surface.roof&&options.roofs?[{...common,appearance:surface.roof.appearance,kind:'roof' as const,planes:roofPlanes(surface),holes:plateHoles(surface,'roof'),bottom:surface.roof.height,top:surface.roof.height+surface.roof.thickness}]:[]),
    ];
   });
-  return [{id:floor.id,name:floor.name,elevation:levels[index],walls:wallVolumes(floor.plan),plates,furniture:options.furniture===false?[]:floor.plan.furniture.filter(f=>f.kind!=='stairs'&&f.kind!=='stairLanding')}];
+  return [{id:floor.id,name:floor.name,elevation:levels[index],walls:wallVolumes(floor.plan),plates,furniture:options.furniture===false?[]:floor.plan.furniture.filter(f=>(f.kind!=='stairs'&&f.kind!=='stairLanding')||f.height!==undefined)}];
  });
 }
 export type BuildingVolumes=ReturnType<typeof buildingVolumes>;
