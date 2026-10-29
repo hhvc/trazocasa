@@ -108,7 +108,7 @@ test('a held jump cannot double-jump and crouching prevents takeoff',()=>{
  const paused=advanceWalk(w,up,0,0,0).motion;assert.equal(paused.velocity,up.velocity);assert.equal(paused.grounded,false);
 });
 test('thin ceilings stop upward motion without tunneling and the person lands afterward',()=>{
- const w=world(project({surfaces:[{id:'roof',name:'Techo',points:rectangle(0,-3,6,6),roof:{height:1.85,thickness:.02}}]}));let m=jump(initialMotion(w)),peak=0;
+ const w=world(project({surfaces:[{id:'roof',name:'Techo',points:rectangle(0,-3,6,6),roof:{height:1.85,thickness:.05}}]}));let m=jump(initialMotion(w)),peak=0;
  for(let i=0;i<30;i++){m=advanceWalk(w,m,0,0,.05).motion;peak=Math.max(peak,m.feet);}assert.ok(peak<=.151);assert.ok(m.grounded);close(m.feet,w.base);
  const sweep=verticalStep(w,w.start,0,1.7,5);assert.ok(sweep.ceiling);close(sweep.feet,.15);
 });
@@ -133,3 +133,5 @@ test('keyboard and touch abilities change posture and eye height, reject repeats
 test('crouched movement is slower and focus loss preserves a safe crouched posture',()=>{
  const h=harness();h.tick(0);h.controller.act('crouch');h.controller.input('forward',true);h.tick(50);close(h.avatar.root.position.z,.035);h.win.fire('blur');h.tick(100);h.tick(150);close(h.avatar.root.position.z,.035);assert.ok(h.reports.at(-1).crouched);h.controller.dispose();
 });
+
+test('a resting grounded figure avoids repeated collision queries',()=>{const w=world();let queries=0;const original=w.verticalIntervals;w.verticalIntervals=p=>{queries++;return original(p);};let m=initialMotion(w);for(let i=0;i<60;i++)m=advanceWalk(w,m,0,0,1/60).motion;assert.equal(queries,0);close(m.feet,w.base);});

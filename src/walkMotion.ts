@@ -27,7 +27,7 @@ export function verticalStep(world:WalkWorld,position:WalkPoint,feet:number,heig
 export function advanceWalk(world:WalkWorld,source:WalkMotion,dx:number,dz:number,seconds:number){
  let motion={...source,position:{...source.position}},distance=0;
  const duration=Math.max(0,Math.min(.05,seconds)),steps=Math.max(1,Math.ceil(duration*120)),dt=duration/steps;
- if(duration===0)return {motion,distance};
+ if(duration===0||(motion.grounded&&dx===0&&dz===0&&motion.velocity===0))return {motion,distance};
  const height=bodyHeight(world,motion);
  for(let i=0;i<steps;i++){
   const next=moveWalker(world,motion.position,dx/steps,dz/steps,{base:motion.feet,height});distance+=Math.hypot(next.x-motion.position.x,next.z-motion.position.z);motion.position=next;

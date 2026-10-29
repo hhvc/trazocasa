@@ -385,7 +385,7 @@ En **Ver 3D**, seleccionar una persona y pulsar **Controlar persona**. El recorr
 
 El cuerpo tiene un radio acorde a la figura y camina a 1,4 m/s. Se comprueban muros, ancho y altura de puertas, ventanas, muebles, losas y cubiertas; la cámara en tercera persona se acerca al encontrar obstáculos. El recorrido activa los elementos visibles y suspende la edición hasta terminar. El mobiliario usa su caja exterior como obstáculo: es una aproximación conservadora para esta etapa.
 
-Se recorre una planta a nivel constante. En la primera planta hay suelo implícito fuera de los contornos; los huecos de las losas bloquean el paso. En plantas superiores se requieren losas bajo los pies y se detiene el movimiento en bordes y huecos. La figura debe comenzar en un lugar libre, apoyada sobre el piso. Todavía no se suben escaleras, se salta ni se trepa. La pérdida de foco o visibilidad detiene los controles y al salir se liberan la animación, eventos y recursos. No se agregaron dependencias ni servicios.
+El recorrido se mantiene dentro de la planta elegida. En la primera planta hay suelo implícito fuera de los contornos; los huecos de las losas bloquean el paso. En plantas superiores se requieren losas bajo los pies y se detiene el movimiento en bordes y huecos. La figura debe comenzar en un lugar libre, apoyada sobre el piso. Las escaleras y la escalada aún no están disponibles; las acciones de agacharse y saltar se describen más abajo. La pérdida de foco o visibilidad detiene los controles y al salir se liberan la animación, eventos y recursos. No se agregaron dependencias ni servicios.
 
 ### Agacharse y saltar
 

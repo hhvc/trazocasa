@@ -87,3 +87,13 @@ test('500 items share a bounded number of render batches',()=>{
  assert.ok(s.selectable.length<=4);assert.ok(s.group.children.length<=5);assert.equal(new Set(s.selectable.map(m=>m.material)).size,1);
  assert.ok(s.selectable.reduce((n,m)=>n+m.count,0)>500);dispose(s.group);
 });
+
+const walkingUrl=await moduleUrl('./WalkingPerson.ts',{'three':import.meta.resolve('three'),'./furniture3d':partsUrl,'./furnitureHeights':heightsUrl,'./FurnitureScene':sceneUrl,'./finishMaterials':finishesUrl});
+const {createWalkingPerson}=await import(walkingUrl),{createFinishLibrary}=await import(finishesUrl);
+test('articulated crouching matches collision height, keeps feet above the floor and reuses resources',()=>{
+ const finishes=createFinishLibrary(),actor=createWalkingPerson(item('person',{height:1.7}),finishes),geometries=new Set(),materials=new Set();actor.root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material);});
+ for(const crouched of [false,true])for(const distance of [0,.12,.45,1]){actor.pose(distance,true,crouched,false);actor.root.updateMatrixWorld(true);const bounds=new Box3().setFromObject(actor.root);assert.ok(bounds.min.y>=-.00001);close(bounds.max.y,1.7*(crouched?.7:1));}
+ actor.pose(0,false,false,true);actor.root.updateMatrixWorld(true);assert.ok(new Box3().setFromObject(actor.root).min.y>=0);
+ const again=new Set();actor.root.traverse(o=>{if(o.geometry)again.add(o.geometry);});assert.deepEqual(again,geometries);
+ let disposed=0;for(const resource of [...geometries,...materials])resource.addEventListener('dispose',()=>disposed++);actor.dispose();assert.equal(disposed,geometries.size+materials.size);finishes.dispose();
+});
