@@ -1,13 +1,14 @@
+import {containsClimbSurface} from './climb';
 import {maxWalkStep} from './walkPhysics';
 import type {WalkPoint,WalkWorld} from './walkPhysics';
-export type WalkMotion={position:WalkPoint;feet:number;navigation:number;velocity:number;grounded:boolean;crouched:boolean;standBlocked:boolean};
+export type WalkMotion={platform?:string;position:WalkPoint;feet:number;navigation:number;velocity:number;grounded:boolean;crouched:boolean;standBlocked:boolean};
 export const crouchRatio=.7;
 const gravity=9.8,jumpSpeed=Math.sqrt(2*gravity*.55);
 export const bodyHeight=(world:WalkWorld,motion:WalkMotion)=>world.height*(motion.crouched?crouchRatio:1);
 export const initialMotion=(world:WalkWorld):WalkMotion=>({position:{...world.start},feet:world.base,navigation:world.base,velocity:0,grounded:true,crouched:false,standBlocked:false});
 export function toggleCrouch(world:WalkWorld,motion:WalkMotion):WalkMotion{
  if(!motion.crouched)return {...motion,crouched:true,standBlocked:false};
- if(!world.canOccupy(motion.position,{base:motion.feet,height:world.height,navigation:motion.navigation}))return {...motion,standBlocked:true};
+ if(!world.isClear(motion.position,{base:motion.feet,height:world.height}))return {...motion,standBlocked:true};
  return {...motion,crouched:false,standBlocked:false};
 }
 export function jump(motion:WalkMotion):WalkMotion{return motion.grounded&&!motion.crouched?{...motion,velocity:jumpSpeed,grounded:false}:motion;}
@@ -24,6 +25,8 @@ export function verticalStep(world:WalkWorld,position:WalkPoint,feet:number,heig
  return {feet:next,grounded,ceiling};
 }
 function stepTo(world:WalkWorld,motion:WalkMotion,position:WalkPoint,height:number):WalkMotion|null{
+ const platform=world.climbSurfaces.find(s=>s.key===motion.platform);
+ if(platform&&containsClimbSurface(platform,position,world.radius))return world.isClear(position,{base:motion.feet,height})?{...motion,position}:null;
  const navigation=world.navigationSupport(position,motion.navigation,motion.feet+(motion.grounded?maxWalkStep:0));
  if(navigation===null)return null;
  let feet=motion.feet;
@@ -33,7 +36,7 @@ function stepTo(world:WalkWorld,motion:WalkMotion,position:WalkPoint,height:numb
  }
  if(!world.isClear(position,{base:feet,height}))return null;
  if(feet>motion.feet&&!world.isClear(motion.position,{base:feet,height}))return null;
- return {...motion,position,feet,navigation};
+ return {...motion,position,feet,navigation,platform:undefined};
 }
 /** Short substeps join nearby architectural supports. Furniture still requires jumping. */
 export function advanceWalk(world:WalkWorld,source:WalkMotion,dx:number,dz:number,seconds:number){
@@ -58,6 +61,6 @@ export function advanceWalk(world:WalkWorld,source:WalkMotion,dx:number,dz:numbe
   const vertical=verticalStep(world,motion.position,motion.feet,height,motion.velocity*dt-gravity*dt*dt/2);
   motion.feet=vertical.feet;motion.grounded=vertical.grounded;motion.velocity=vertical.grounded||vertical.ceiling?0:motion.velocity-gravity*dt;
  }
- if(motion.standBlocked&&world.canOccupy(motion.position,{base:motion.feet,height:world.height,navigation:motion.navigation}))motion.standBlocked=false;
+ if(motion.standBlocked&&world.isClear(motion.position,{base:motion.feet,height:world.height}))motion.standBlocked=false;
  return {motion,distance};
 }

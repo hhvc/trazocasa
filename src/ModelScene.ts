@@ -53,7 +53,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
   stopWalk();setObserver(null);controls.enabled=false;
   avatar=createWalkingPerson(world.item,finishes);scene.add(avatar.root);
   walker=createWalkController(canvas,world,avatar,selectable.filter(o=>o.userData.cameraObstacle!==false),render,report);walker.resize(Math.max(1,host.clientWidth)/Math.max(1,host.clientHeight));
-  if(grid)grid.visible=false;canvas.setAttribute('aria-label','Recorrido. WASD o flechas para caminar, C para agacharse, espacio para saltar y arrastrar para mirar.');canvas.focus({preventScroll:true});render();
+  if(grid)grid.visible=false;canvas.setAttribute('aria-label','Recorrido. WASD o flechas para caminar, C para agacharse, espacio para saltar, E para subir o bajar de objetos y arrastrar para mirar.');canvas.focus({preventScroll:true});render();
  }
  function setObserver(view:PersonView|null){controls.enabled=!view;personCamera.set(view);canvas.setAttribute('aria-label',view?'Vista desde la persona. Arrastrá o usá las flechas para mirar.':'Modelo 3D del edificio');if(grid)grid.visible=!view&&mode==='3d';render();}
  function setMode(next:ModelView){stopWalk();setObserver(null);mode=next;controls.maxPolarAngle=mode==='3d'?Math.PI*.49:Math.PI;controls.enableRotate=mode==='3d';controls.mouseButtons.LEFT=mode==='3d'?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;controls.touches.ONE=mode==='3d'?THREE.TOUCH.ROTATE:THREE.TOUCH.PAN;if(grid)grid.visible=mode==='3d';fit();}

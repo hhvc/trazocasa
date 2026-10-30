@@ -29,7 +29,7 @@ export default function ModelPanel({building,plan,onChange,onLevel,onPerson,onFu
  const [mode,setMode]=useState<ModelView>('3d'),[selection,setSelection]=useState<ModelSelection|null>(null),[panel,setPanel]=useState(false),[error,setError]=useState(''),[fatal,setFatal]=useState(''),[ready,setReady]=useState(false),[busy,setBusy]=useState(false);
  const [scope,setScope]=useState<ModelOptions['scope']>('all'),[slabs,setSlabs]=useState(true),[roofs,setRoofs]=useState(true),[showFurniture,setShowFurniture]=useState(true);
  const [inspector,setInspector]=useState<'geometry'|'appearance'>('geometry'),[plateTarget,setPlateTarget]=useState<'slab'|'roof'>('slab');
- const [walking,setWalking]=useState<{world:WalkWorld;selection:ModelSelection;revision:Building}|null>(null),[walkMode,setWalkMode]=useState<WalkCameraMode>('third'),[walkProgress,setWalkProgress]=useState<WalkProgress>({elevation:0,distance:0,blocked:false,crouched:false,grounded:true,standBlocked:false});
+ const [walking,setWalking]=useState<{world:WalkWorld;selection:ModelSelection;revision:Building}|null>(null),[walkMode,setWalkMode]=useState<WalkCameraMode>('third'),[walkProgress,setWalkProgress]=useState<WalkProgress>({climb:null,elevation:0,distance:0,blocked:false,crouched:false,grounded:true,standBlocked:false});
  const [observer,setObserver]=useState<ModelSelection|null>(null);
  const [preview,setPreview]=useState<{key:string;appearance?:Appearance}|null>(null);
  const floor=building.floors.find(f=>f.id===building.activeFloorId)!;
@@ -67,7 +67,7 @@ export default function ModelPanel({building,plan,onChange,onLevel,onPerson,onFu
   if(!furniture||furniture.kind!=='person')return;
   try{const selection={floorId:floor.id,elementId:furniture.id},world=createWalkWorld(buildingVolumes(building,{scope:'all',slabs:true,roofs:true,furniture:true}),selection);
    if(!world.canOccupy(world.start)){setError('La persona necesita espacio libre y apoyo en el piso. Ubicala fuera de muros y muebles; en plantas superiores dibujá una losa bajo sus pies.');return;}
-   stopObserving();setScope('all');setSlabs(true);setRoofs(true);setShowFurniture(true);setSelection(null);setPreview(null);setPanel(false);setError('');setWalkMode('third');setWalkProgress({elevation:world.base,distance:0,blocked:false,crouched:false,grounded:true,standBlocked:false});setWalking({world,selection,revision:building});
+   stopObserving();setScope('all');setSlabs(true);setRoofs(true);setShowFurniture(true);setSelection(null);setPreview(null);setPanel(false);setError('');setWalkMode('third');setWalkProgress({climb:null,elevation:world.base,distance:0,blocked:false,crouched:false,grounded:true,standBlocked:false});setWalking({world,selection,revision:building});
   }catch(e){setError(e instanceof Error?e.message:'No se pudo iniciar el recorrido.');}
  }
  function observe(){if(!furniture||furniture.kind!=='person')return;setObserver({floorId:floor.id,elementId:furniture.id});setPanel(false);setSelection(null);setPreview(null);host.current?.querySelector('canvas')?.focus();}
@@ -114,6 +114,6 @@ export default function ModelPanel({building,plan,onChange,onLevel,onPerson,onFu
  </aside>}
  </div>
  {error&&<div className="model-error" role="alert">{error}<button aria-label="Cerrar error" onClick={()=>setError('')}>×</button></div>}
- <footer>{walking?'WASD o flechas · C: agacharse · Espacio: saltar · Arrastrá para mirar · Esc para terminar':eyes?'Vista fija · Arrastrá para mirar · Flechas con el lienzo enfocado · Esc para volver':mode==='3d'?'Arrastrá para girar · Rueda o dos dedos para zoom · Botón derecho para mover':'Fachada sin perspectiva · Arrastrá para mover · Rueda o dos dedos para zoom'}<span>{scope==='all'?building.floors.length+' plantas':'Planta activa'} · {floor.name}: {level.toFixed(2)} m · Frente: borde inferior del plano.</span></footer>
+ <footer>{walking?'WASD o flechas · C: agacharse · Espacio: saltar · E: subir/bajar · Arrastrá para mirar · Esc para terminar':eyes?'Vista fija · Arrastrá para mirar · Flechas con el lienzo enfocado · Esc para volver':mode==='3d'?'Arrastrá para girar · Rueda o dos dedos para zoom · Botón derecho para mover':'Fachada sin perspectiva · Arrastrá para mover · Rueda o dos dedos para zoom'}<span>{scope==='all'?building.floors.length+' plantas':'Planta activa'} · {floor.name}: {level.toFixed(2)} m · Frente: borde inferior del plano.</span></footer>
  </section>;
 }

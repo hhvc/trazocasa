@@ -1,3 +1,5 @@
+import {climbSurface} from './climb';
+import type {ClimbSurface} from './climb';
 import {stairTreads} from './stairGeometry';
 import type {Furniture,Point} from './model';
 import type {BuildingVolumes,ModelSelection} from './model3d';
@@ -18,7 +20,7 @@ function contactTop(b:Block,p:Point,r:number){const dx=p.x-b.x,dz=p.y-b.z,x=dx*b
 export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
  const floor=model.find(f=>f.id===selection.floorId),item=floor?.furniture.find(f=>f.id===selection.elementId&&f.kind==='person');
  if(!floor||!item)throw new Error('Seleccioná una persona para iniciar el recorrido.');
- const height=furnitureHeight(item),radius=Math.max(.15,Math.min(.45,item.width*.45)),base=floor.elevation+(item.elevation??0),blocks:Block[]=[],stairSupports:Support[]=[];
+ const height=furnitureHeight(item),radius=Math.max(.15,Math.min(.45,item.width*.45)),base=floor.elevation+(item.elevation??0),blocks:Block[]=[],stairSupports:Support[]=[],climbSurfaces:ClimbSurface[]=[];
  for(const f of model){
   for(const w of f.walls){
    const cos=Math.cos(w.angle),sin=Math.sin(w.angle);
@@ -28,6 +30,7 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
   }
   for(const i of f.furniture){
    if(f.id===selection.floorId&&i.id===selection.elementId)continue;
+   const surface=climbSurface(i,f.elevation,furnitureHeight(i),f.id);if(surface)climbSurfaces.push(surface);
    const angle=i.rotation*Math.PI/180,cos=Math.cos(angle),sin=Math.sin(angle),bottom=f.elevation+(i.elevation??0);
    if(i.kind==='stairs'||i.kind==='stairLanding'){
     const treads=stairTreads(i).map(t=>{const z=(t.from+t.to)/2;return {x:i.x-z*sin,z:i.y+z*cos,cos,sin,halfW:i.width/2,halfD:(t.to-t.from)/2,bottom:bottom+t.bottom,top:()=>bottom+t.top};});
@@ -82,7 +85,7 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
  function canOccupy(pos:WalkPoint,body:WalkBody={base,height}){
   return isClear(pos,body)&&navigationSupport(pos,body.navigation??base,body.base+maxWalkStep)!==null;
  }
- return {item:item as Furniture,base,height,radius,groundLevel,start:{x:item.x,z:item.y},canOccupy,isClear,navigationSupport,verticalIntervals};
+ return {item:item as Furniture,base,height,radius,groundLevel,climbSurfaces,start:{x:item.x,z:item.y},canOccupy,isClear,navigationSupport,verticalIntervals};
 }
 /** Short substeps prevent tunneling; axis fallback lets the body slide along obstacles. */
 export function moveWalker(world:WalkWorld,from:WalkPoint,dx:number,dz:number,body?:{base:number;height:number}):WalkPoint{
