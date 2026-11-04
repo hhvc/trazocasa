@@ -56,12 +56,15 @@ export function findClimbAction(world:WalkWorld,motion:WalkMotion,yaw:number):Cl
  const reach=Math.min(.9,world.height*.55),forward={x:-Math.sin(yaw),z:Math.cos(yaw)};
  const standing=world.climbSurfaces.find(s=>Math.abs(s.top-motion.feet)<.002&&containsClimbSurface(s,motion.position,world.radius));
  if(standing){
-  const destination=exitPoint(standing,motion.position,yaw,world.radius);if(!destination||Math.hypot(destination.x-motion.position.x,destination.z-motion.position.z)>1.15)return null;
+  for(const turn of [0,Math.PI,Math.PI/2,-Math.PI/2]){
+  const destination=exitPoint(standing,motion.position,yaw+turn,world.radius);if(!destination||Math.hypot(destination.x-motion.position.x,destination.z-motion.position.z)>1.15)continue;
   // navigationSupport's lower window is 22 cm; offset the reference to search
   // the entire permitted descent while retaining its full-footprint checks.
   const feet=world.navigationSupport(destination,standing.top-reach+.22,standing.top-.05);
-  if(feet===null||standing.top-feet>reach+.001)return null;
-  return prepare(world,motion,{...copy(motion),position:destination,feet,navigation:feet,platform:undefined,velocity:0,grounded:true},standing,'down');
+  if(feet===null||standing.top-feet>reach+.001)continue;
+  const action=prepare(world,motion,{...copy(motion),position:destination,feet,navigation:feet,platform:undefined,velocity:0,grounded:true},standing,'down');if(action)return action;
+  }
+  return null;
  }
  const candidates=world.climbSurfaces.flatMap(s=>{
   const rise=s.top-motion.feet;if(rise<.08||rise>reach)return [];

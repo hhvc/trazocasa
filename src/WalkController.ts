@@ -17,7 +17,7 @@ export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,av
  const camera=new PerspectiveCamera(65,1,.02,6000),direction=new Vector3(),target=new Vector3(),desired=new Vector3(),ray=new Raycaster();
  const keyboard=new Set<string>(),touch=new Set<WalkAction>(),windowTarget=canvas.ownerDocument.defaultView!,documentTarget=canvas.ownerDocument;
  let motion=initialMotion(world),yaw=world.item.rotation*Math.PI/180,pitch=-.1,mode:WalkCameraMode='third',distance=0,closed=false,frame=0,previous:number|undefined,drag:{id:number;x:number;y:number}|null=null,lastReport='',wasMoving=false,wasGrounded=true;
- let climb:{action:ClimbAction;elapsed:number}|null=null,hint:ClimbAction|null=null,hintKey='',hintTime=-Infinity,now=0;
+ let climb:{action:ClimbAction;elapsed:number;distance:number}|null=null,hint:ClimbAction|null=null,hintKey='',hintTime=-Infinity,now=0;
  const cursor=canvas.style.cursor;canvas.style.cursor='grab';
  function cameraUpdate(){
   direction.set(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
@@ -45,7 +45,7 @@ export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,av
  function look(dx:number,dy:number){if(!climb)yaw+=dx;pitch=MathUtils.clamp(pitch+dy,-1.15,.65);refreshHint(true);cameraUpdate();progress();render();}
  function stopDrag(){const d=drag;drag=null;if(d&&canvas.hasPointerCapture(d.id))canvas.releasePointerCapture(d.id);}
  function pause(){
-  const interrupted=!!climb;if(climb){motion={...climb.action.from,position:{...climb.action.from.position}};climb=null;hintKey='';}
+  const interrupted=!!climb;if(climb){motion={...climb.action.from,position:{...climb.action.from.position}};distance=climb.distance;climb=null;hintKey='';}
   keyboard.clear();touch.clear();stopDrag();previous=undefined;pose();
   if(interrupted&&!closed){refreshHint(true);cameraUpdate();progress();render();}
  }
@@ -58,7 +58,7 @@ export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,av
   if(action==='climb'){
    refreshHint(true);if(!hint)return;keyboard.clear();touch.clear();stopDrag();
    const dx=hint.to.position.x-hint.from.position.x,dz=hint.to.position.z-hint.from.position.z;yaw=Math.atan2(-dx,dz);
-   climb={action:hint,elapsed:0};motion=climbMotion(hint,0);hint=null;
+   climb={action:hint,elapsed:0,distance};motion=climbMotion(hint,0);hint=null;
   }else motion=action==='crouch'?toggleCrouch(world,motion):jump(motion);
   refreshHint(true);pose();cameraUpdate();progress();render();
  }

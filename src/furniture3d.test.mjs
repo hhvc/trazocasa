@@ -111,3 +111,9 @@ test('stairs and landing heights round trip and old symbols remain opt-in',()=>{
  assert.deepEqual(validateBuilding(JSON.parse(JSON.stringify(b))),b);assert.equal(buildingVolumes(b,options)[0].furniture.length,3);
  assert.equal(buildingVolumes(project([item('stairs')]),options)[0].furniture.length,0);
 });
+
+test('climbing bends knees and raises arms without exceeding the standing head clearance',()=>{
+ const finishes=createFinishLibrary(),actor=createWalkingPerson(item('person',{height:1.7}),finishes);
+ for(const phase of [0,.1,.3,.5,.8,1]){actor.pose(0,false,false,false,phase);actor.root.updateMatrixWorld(true);const box=new Box3().setFromObject(actor.root);assert.ok(box.min.y>=-.00001);assert.ok(box.max.y<=1.70001);}
+ actor.dispose();finishes.dispose();
+});

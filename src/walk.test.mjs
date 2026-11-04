@@ -7,10 +7,11 @@ async function moduleUrl(file,deps={}){let source=ts.transpileModule(await readF
 const modelUrl=await moduleUrl('./model.ts'),heightsUrl=await moduleUrl('./furnitureHeights.ts');
 const {emptyPlan,validatePlan,validateBuilding,buildingFromPlan,addFloor}=await import(modelUrl);
 const volumesUrl=await moduleUrl('./model3d.ts',{'./model':modelUrl}),{buildingVolumes}=await import(volumesUrl);
-const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./furnitureHeights':heightsUrl,'./stairGeometry':await moduleUrl('./stairGeometry.ts')}),{createWalkWorld,moveWalker,walkDelta}=await import(physicsUrl);
-const motionUrl=await moduleUrl('./walkMotion.ts',{'./walkPhysics':physicsUrl});
+const climbUrl=await moduleUrl('./climb.ts'),{findClimbAction,climbMotion,containsClimbSurface}=await import(climbUrl);
+const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./climb':climbUrl,'./furnitureHeights':heightsUrl,'./stairGeometry':await moduleUrl('./stairGeometry.ts')}),{createWalkWorld,moveWalker,walkDelta}=await import(physicsUrl);
+const motionUrl=await moduleUrl('./walkMotion.ts',{'./climb':climbUrl,'./walkPhysics':physicsUrl});
 const {advanceWalk,initialMotion,toggleCrouch,jump,verticalStep,bodyHeight}=await import(motionUrl);
-const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
+const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'./climb':climbUrl,'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
 const person=(extra={})=>({id:'person',kind:'person',x:3,y:1,width:.6,depth:.4,rotation:180,...extra});
 const wall={id:'wall',a:{x:0,y:0},b:{x:6,y:0},thickness:.1};
 const rectangle=(x,y,w,d)=>[{x,y},{x:x+w,y},{x:x+w,y:y+d},{x,y:y+d}];
@@ -188,4 +189,59 @@ test('L and U flights join through their landings, including mirrored and rotate
   const lastStart=point(last,last.depth/2+.5);m=advanceTo(w,m,lastStart.x,lastStart.y);m=advanceTo(w,m,end.x,end.y);assert.ok(m.feet>=2.8,JSON.stringify({shape,side,rotation,m}));
   m=advanceTo(w,m,lastStart.x,lastStart.y);m=advanceTo(w,m,onLanding.x,onLanding.y);m=advanceTo(w,m,start.x,start.y);close(m.feet,0);assert.ok(Math.hypot(m.position.x-start.x,m.position.z-start.y)<.01);
  }
+});
+
+const climbTable=(extra={})=>({id:'table',kind:'table',x:0,y:0,width:1.6,depth:1.2,rotation:0,height:.75,...extra});
+function climbProject(item=climbTable(),extra={}){const p=person({x:0,y:-1.1,rotation:0});return project({furniture:[p,item],...extra},p);}
+test('climbing a low tabletop validates the entire path and leaves the saved building unchanged',()=>{
+ const b=climbProject(),before=JSON.stringify(b),w=world(b),start=initialMotion(w),action=findClimbAction(w,start,0);assert.ok(action);assert.equal(action.kind,'up');
+ for(let i=0;i<=100;i++){const m=climbMotion(action,action.duration*i/100);assert.ok(w.isClear(m.position,{base:m.feet,height:w.height}),i);assert.ok(m.feet>=0&&m.feet<=.771);}
+ const finish=climbMotion(action,action.duration);close(finish.feet,.75);assert.ok(finish.grounded);assert.ok(containsClimbSurface(w.climbSurfaces[0],finish.position,w.radius));assert.ok(finish.platform);assert.equal(JSON.stringify(b),before);
+ const down=findClimbAction(w,finish,0);assert.equal(down.kind,'down');const landed=climbMotion(down,down.duration);close(landed.feet,0);assert.ok(landed.grounded);assert.equal(landed.platform,undefined);assert.ok(w.canOccupy(landed.position));
+});
+test('contextual climb requires facing, proximity, standing posture and reachable height',()=>{
+ const w=world(climbProject()),m=initialMotion(w);assert.equal(findClimbAction(w,m,Math.PI),null);assert.equal(findClimbAction(w,{...m,position:{x:0,z:-3}},0),null);
+ assert.equal(findClimbAction(w,toggleCrouch(w,m),0),null);assert.equal(findClimbAction(w,jump(m),0),null);
+ assert.equal(findClimbAction(world(climbProject(climbTable({height:1.1}))),m,0),null);
+ const child=climbProject();child.floors[0].plan.furniture[0].height=.5;const small=world(child);assert.equal(findClimbAction(small,initialMotion(small),0),null);
+});
+test('small, curved or unsupported objects do not offer an invalid foothold',()=>{
+ for(const item of [climbTable({width:.4}),climbTable({kind:'tree'}),climbTable({kind:'chair'}),climbTable({kind:'bathtub'}),climbTable({kind:'sofa'})]){const w=world(climbProject(item));assert.equal(findClimbAction(w,initialMotion(w),0),null,item.kind);}
+ const w=world(climbProject(climbTable({kind:'roundCoffeeTable',width:1.2,depth:1.2,height:.42}))),action=findClimbAction(w,initialMotion(w),0);assert.ok(action);assert.ok(containsClimbSurface(w.climbSurfaces[0],action.to.position,w.radius));
+ assert.equal(containsClimbSurface(w.climbSurfaces[0],{x:.4,z:.4},w.radius),false);
+});
+test('walls and low ceilings along the transfer block climbing even when the destination is clear',()=>{
+ const wallBlock={...wall,a:{x:-2,y:-.75},b:{x:2,y:-.75},height:3};
+ const roof={id:'roof',name:'Techo bajo',points:rectangle(-.5,-1.5,1,.5),roof:{height:2.1,thickness:.1}};
+ for(const extra of [{walls:[wallBlock]},{surfaces:[roof]}]){const w=world(climbProject(climbTable(),extra)),m=initialMotion(w);assert.ok(w.canOccupy(m.position));assert.ok(w.isClear({x:0,z:-.305},{base:.75,height:w.height}));assert.equal(findClimbAction(w,m,0),null);}
+});
+test('rotated tabletops and second-floor elevations produce matching safe landings',()=>{
+ for(const rotation of [30,90,180,270]){
+  const a=rotation*Math.PI/180,b=climbProject(climbTable({rotation}));Object.assign(b.floors[0].plan.furniture[0],{x:1.1*Math.sin(a),y:-1.1*Math.cos(a),rotation});
+  const w=world(b),action=findClimbAction(w,initialMotion(w),a);assert.ok(action,rotation);close(action.to.feet,.75);assert.ok(containsClimbSurface(w.climbSurfaces[0],action.to.position,w.radius));
+ }
+ let b=climbProject(climbTable(),{surfaces:[{id:'floor',name:'Piso',points:rectangle(-3,-3,6,6),slab:{thickness:.2}}]});b=addFloor(b,'Alta','copy');const w=world(b,1),action=findClimbAction(w,initialMotion(w),0);assert.ok(action);close(action.to.feet,w.base+.75);const down=findClimbAction(w,action.to,0);assert.ok(down);close(down.to.feet,w.base);
+});
+test('climbed objects retain a full footprint and require a safe descent instead of falling off',()=>{
+ const w=world(climbProject()),action=findClimbAction(w,initialMotion(w),0);let m=action.to;
+ for(let i=0;i<70;i++)m=advanceWalk(w,m,.05,0,.025).motion;
+ assert.ok(containsClimbSurface(w.climbSurfaces[0],m.position,w.radius));close(m.feet,.75);assert.ok(m.grounded);
+ m=jump(m);for(let i=0;i<70;i++)m=advanceWalk(w,m,.05,0,.025).motion;assert.ok(containsClimbSurface(w.climbSurfaces[0],m.position,w.radius));close(m.feet,.75);
+});
+test('descent cannot land in slab holes or outside an upper floor',()=>{
+ const b=climbProject(climbTable(),{surfaces:[{id:'floor',name:'Piso',points:rectangle(-3,-3,6,6),slab:{thickness:.2},holes:[{id:'hole',name:'Patio',target:'slab',points:rectangle(-2,-2,4,4)}]}]}),w=world(b);
+ const onTop={...initialMotion(w),position:{x:0,z:0},feet:.75,navigation:.75,platform:w.climbSurfaces[0].key};assert.equal(findClimbAction(w,onTop,0),null);
+ const above=addFloor(climbProject(),'Alta','copy'),upper=world(above,1),onUpper={...initialMotion(upper),position:{x:0,z:0},feet:upper.base+.75,navigation:upper.base+.75,platform:upper.climbSurfaces[0].key};assert.equal(findClimbAction(upper,onUpper,0),null);
+});
+test('keyboard E and touch actions animate without double triggering or changing the spawn',()=>{
+ const w=world(climbProject()),h=harness([],false,w);h.tick(0);assert.equal(h.reports.at(-1).climb.kind,'up');h.canvas.fire('keydown',{code:'KeyE'});assert.ok(h.reports.at(-1).climb.active);
+ h.canvas.fire('keydown',{code:'KeyE',repeat:true});h.controller.input('forward',true);h.controller.act('jump');h.controller.act('crouch');
+ for(let i=1;i<=30;i++)h.tick(i*50);close(h.avatar.root.position.y,.75);assert.equal(h.reports.at(-1).climb.kind,'down');assert.ok(!h.reports.at(-1).climb.active);assert.ok(!h.reports.at(-1).crouched);
+ h.controller.act('climb');for(let i=31;i<=60;i++)h.tick(i*50);close(h.avatar.root.position.y,0);h.controller.reset();close(h.avatar.root.position.z,-1.1);assert.equal(h.reports.at(-1).distance,0);h.controller.dispose();
+});
+test('blur, camera changes and disposal interrupt transfers at their original safe position',()=>{
+ for(const cancel of [h=>h.win.fire('blur'),h=>h.doc.fire('visibilitychange'),h=>h.controller.setMode('first')]){
+  const h=harness([],false,world(climbProject()));h.tick(0);h.controller.act('climb');for(let i=1;i<=13;i++)h.tick(i*50);assert.ok(h.avatar.root.position.y>0);cancel(h);close(h.avatar.root.position.y,0);close(h.avatar.root.position.z,-1.1);assert.ok(!h.reports.at(-1).climb.active);assert.equal(h.reports.at(-1).distance,0);h.controller.dispose();assert.equal(h.queued,false);
+ }
+ const h=harness([],false,world(climbProject()));h.tick(0);h.controller.act('climb');h.tick(10000);assert.ok(h.reports.at(-1).climb.active);h.controller.dispose();assert.equal(h.queued,false);assert.equal(h.canvas.count()+h.win.count()+h.doc.count(),0);
 });
