@@ -51,11 +51,11 @@ function prepare(world:WalkWorld,from:WalkMotion,to:WalkMotion,s:ClimbSurface,ki
  }
  return {kind,name:s.name,surface:s.key,from:copy(from),to:copy(to),path,duration:.85+Math.abs(to.feet-from.feet)*.25};
 }
-export function findClimbAction(world:WalkWorld,motion:WalkMotion,yaw:number):ClimbAction|null{
+export function findClimbAction(world:WalkWorld,motion:WalkMotion,yaw:number,targetKey?:string):ClimbAction|null{
  if(!motion.grounded||motion.crouched||![yaw,motion.feet].every(Number.isFinite))return null;
  const reach=Math.min(.9,world.height*.55),forward={x:-Math.sin(yaw),z:Math.cos(yaw)};
  const standing=world.climbSurfaces.find(s=>Math.abs(s.top-motion.feet)<.002&&containsClimbSurface(s,motion.position,world.radius));
- if(standing){
+ if(standing&&(!targetKey||standing.key===targetKey)){
   for(const turn of [0,Math.PI,Math.PI/2,-Math.PI/2]){
   const destination=exitPoint(standing,motion.position,yaw+turn,world.radius);if(!destination||Math.hypot(destination.x-motion.position.x,destination.z-motion.position.z)>1.15)continue;
   // navigationSupport's lower window is 22 cm; offset the reference to search
@@ -67,10 +67,11 @@ export function findClimbAction(world:WalkWorld,motion:WalkMotion,yaw:number):Cl
   return null;
  }
  const candidates=world.climbSurfaces.flatMap(s=>{
+  if(targetKey&&s.key!==targetKey)return [];
   const rise=s.top-motion.feet;if(rise<.08||rise>reach)return [];
   const destination=topPoint(s,motion.position,world.radius);if(!destination)return [];
   const dx=destination.x-motion.position.x,dz=destination.z-motion.position.z,distance=Math.hypot(dx,dz);
-  if(distance<.01||distance>1.05||(dx*forward.x+dz*forward.z)/distance<.7||!containsClimbSurface(s,destination,world.radius))return [];
+  if(distance<.01||distance>1.05||(!targetKey&&(dx*forward.x+dz*forward.z)/distance<.7)||!containsClimbSurface(s,destination,world.radius))return [];
   return [{s,destination,distance}];
  }).sort((a,b)=>a.distance-b.distance);
  for(const {s,destination} of candidates){const action=prepare(world,motion,{...copy(motion),position:destination,feet:s.top,navigation:s.top,platform:s.key,velocity:0,grounded:true},s,'up');if(action)return action;}
@@ -83,4 +84,23 @@ export function climbMotion(action:ClimbAction,elapsed:number):WalkMotion{
  let distance=progress*lengths.reduce((a,b)=>a+b,0);
  for(let i=0;i<lengths.length;i++){const a=action.path[i],b=action.path[i+1];if(distance<=lengths[i]||i===lengths.length-1){const f=lengths[i]?distance/lengths[i]:1;return {...copy(action.from),position:{x:a.position.x+(b.position.x-a.position.x)*f,z:a.position.z+(b.position.z-a.position.z)*f},feet:a.feet+(b.feet-a.feet)*f,velocity:0,grounded:false};}distance-=lengths[i];}
  return copy(action.to);
+}
+
+export type WalkTarget={key:string;name:string;kind:Furniture['kind']};
+/** Selection replaces the facing requirement, never the collision/support checks. */
+export function selectedClimb(world:WalkWorld,motion:WalkMotion,yaw:number,target:WalkTarget){
+ const s=world.climbSurfaces.find(s=>s.key===target.key);
+ const fail=(reason:string)=>({action:null as ClimbAction|null,reason});
+ if(!s)return fail(['smallCar','mediumCar','pickup'].includes(target.kind)?'Manejar vehículos todavía no está disponible.':'Este objeto todavía no tiene acciones de recorrido.');
+ if(motion.crouched)return fail('Levantate para subir o bajar.');
+ if(!motion.grounded)return fail('Esperá a estar apoyado.');
+ const action=findClimbAction(world,motion,yaw,target.key);if(action)return {action,reason:''};
+ if(Math.abs(s.top-motion.feet)<.002&&containsClimbSurface(s,motion.position,world.radius))return fail('No hay una salida segura. Acercate a otro borde.');
+ const destination=topPoint(s,motion.position,world.radius);
+ if(!destination)return fail('La superficie es demasiado pequeña para apoyar el cuerpo.');
+ const rise=s.top-motion.feet,reach=Math.min(.9,world.height*.55);
+ if(rise>reach)return fail('Supera la altura máxima de subida ('+Math.round(reach*100)+' cm).');
+ if(rise<.08)return fail('La superficie no está a una altura válida para subir.');
+ if(Math.hypot(destination.x-motion.position.x,destination.z-motion.position.z)>1.05)return fail('Acercate al objeto para subir.');
+ return fail('No hay espacio libre para subir desde aquí. Probá por otro lado.');
 }

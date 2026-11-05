@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {furnitureCatalog} from './model';
 import {createWalkingPerson} from './WalkingPerson';
 import {createWalkController} from './WalkController';
 import type {WalkAction,WalkAbility,WalkCameraMode,WalkProgress} from './WalkController';
@@ -29,7 +30,7 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
  const controls=new OrbitControls(camera,canvas);controls.enableDamping=false;controls.maxPolarAngle=Math.PI*.49;controls.minZoom=.1;controls.maxZoom=30;controls.screenSpacePanning=true;
  let group=new THREE.Group(),grid:THREE.GridHelper|undefined,mode:ModelView='3d',selected:ModelSelection|null=null,span=10,lastModel:BuildingVolumes|undefined,closed=false;
  let bounds=new THREE.Box3(new THREE.Vector3(-1,0,-1),new THREE.Vector3(9,3,7));
- let furnitureScene:ReturnType<typeof addFurnitureScene>|undefined;
+ let furnitureScene:ReturnType<typeof addFurnitureScene>|undefined,walkSelection:ModelSelection|null=null;
  let walker:ReturnType<typeof createWalkController>|undefined,avatar:ReturnType<typeof createWalkingPerson>|undefined;
  const selectable:THREE.Object3D[]=[];
  const colors=new Map<string,{material:THREE.MeshStandardMaterial|THREE.LineBasicMaterial;base:string}[]>();
@@ -48,12 +49,12 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
   for(const x of [bounds.min.x,bounds.max.x])for(const y of [bounds.min.y,bounds.max.y])for(const z of [bounds.min.z,bounds.max.z]){const p=new THREE.Vector3(x,y,z).sub(center).applyQuaternion(inverse);width=Math.max(width,Math.abs(p.x)*2);height=Math.max(height,Math.abs(p.y)*2);}
   span=Math.max(2,height,width/(Math.max(1,host.clientWidth)/Math.max(1,host.clientHeight)))*1.25;controls.update();size();
  }
- function stopWalk(){walker?.dispose();walker=undefined;avatar?.dispose();avatar=undefined;controls.enabled=!personCamera.active;canvas.setAttribute('aria-label','Modelo 3D del edificio');if(grid)grid.visible=!personCamera.active&&mode==='3d';render();}
+ function stopWalk(){walker?.dispose();walker=undefined;avatar?.dispose();avatar=undefined;walkSelection=null;furnitureScene?.setSelected(selected);controls.enabled=!personCamera.active;canvas.setAttribute('aria-label','Modelo 3D del edificio');if(grid)grid.visible=!personCamera.active&&mode==='3d';render();}
  function setWalk(world:WalkWorld,report:(p:WalkProgress)=>void){
-  stopWalk();setObserver(null);controls.enabled=false;
+  stopWalk();setObserver(null);controls.enabled=false;let highlightKey:string|undefined;
   avatar=createWalkingPerson(world.item,finishes);scene.add(avatar.root);
-  walker=createWalkController(canvas,world,avatar,selectable.filter(o=>o.userData.cameraObstacle!==false),render,report);walker.resize(Math.max(1,host.clientWidth)/Math.max(1,host.clientHeight));
-  if(grid)grid.visible=false;canvas.setAttribute('aria-label','Recorrido. WASD o flechas para caminar, C para agacharse, espacio para saltar, E para subir o bajar de objetos y arrastrar para mirar.');canvas.focus({preventScroll:true});render();
+  walker=createWalkController(canvas,world,avatar,selectable.filter(o=>o.userData.cameraObstacle!==false),render,p=>{const key=p.interaction?.key;if(key!==highlightKey){highlightKey=key;const ids=key?JSON.parse(key) as string[]:null;walkSelection=ids?{floorId:ids[0],elementId:ids[1]}:null;furnitureScene?.setSelected(walkSelection);}report(p);});walker.resize(Math.max(1,host.clientWidth)/Math.max(1,host.clientHeight));
+  if(grid)grid.visible=false;canvas.setAttribute('aria-label','Recorrido. WASD o flechas para caminar, C para agacharse, espacio para saltar, tocá un objeto para seleccionarlo, E para interactuar y arrastrá para mirar.');canvas.focus({preventScroll:true});render();
  }
  function setObserver(view:PersonView|null){controls.enabled=!view;personCamera.set(view);canvas.setAttribute('aria-label',view?'Vista desde la persona. Arrastrá o usá las flechas para mirar.':'Modelo 3D del edificio');if(grid)grid.visible=!view&&mode==='3d';render();}
  function setMode(next:ModelView){stopWalk();setObserver(null);mode=next;controls.maxPolarAngle=mode==='3d'?Math.PI*.49:Math.PI;controls.enableRotate=mode==='3d';controls.mouseButtons.LEFT=mode==='3d'?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;controls.touches.ONE=mode==='3d'?THREE.TOUCH.ROTATE:THREE.TOUCH.PAN;if(grid)grid.visible=mode==='3d';fit();}
@@ -102,13 +103,16 @@ export function createModelScene(host:HTMLDivElement,model:BuildingVolumes,onSel
   grid=new THREE.GridHelper(gridSize,Math.min(100,gridSize),0xb7c6b7,0xe1e5db);grid.position.set(center.x,bounds.min.y-.02,center.z);grid.visible=mode==='3d'&&!personCamera.active;scene.add(grid);setSelected(selected);
  }
  const raycaster=new THREE.Raycaster();let start:{x:number;y:number;id:number}|undefined;
- function pointerDown(e:PointerEvent){if(!walker&&!personCamera.active&&e.isPrimary&&e.button===0)start={x:e.clientX,y:e.clientY,id:e.pointerId};else start=undefined;}
- function pointerUp(e:PointerEvent){if(walker||personCamera.active)return;if(!start||start.id!==e.pointerId)return;const click=Math.hypot(e.clientX-start.x,e.clientY-start.y)<5;start=undefined;if(!click)return;const r=canvas.getBoundingClientRect();raycaster.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,1-(e.clientY-r.top)/r.height*2),camera);onSelect(selectionFromIntersection(raycaster.intersectObjects(selectable,false)[0]));}
+ function pointerDown(e:PointerEvent){if(!personCamera.active&&!walker?.interacting&&e.isPrimary&&e.button===0)start={x:e.clientX,y:e.clientY,id:e.pointerId};else start=undefined;}
+ function pointerMove(e:PointerEvent){if(start&&e.pointerId===start.id&&Math.hypot(e.clientX-start.x,e.clientY-start.y)>=5)start=undefined;}
+ function pointerCancel(){start=undefined;}
+ function pointerUp(e:PointerEvent){if(personCamera.active||walker?.interacting)return;if(!start||start.id!==e.pointerId)return;const click=Math.hypot(e.clientX-start.x,e.clientY-start.y)<5;start=undefined;if(!click)return;const r=canvas.getBoundingClientRect();raycaster.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,1-(e.clientY-r.top)/r.height*2),walker?.camera??camera);const selection=selectionFromIntersection(raycaster.intersectObjects(selectable,false)[0]);
+  if(walker){const item=lastModel?.find(f=>f.id===selection?.floorId)?.furniture.find(i=>i.id===selection?.elementId);walker.selectTarget(item&&selection?{key:JSON.stringify([selection.floorId,item.id]),name:furnitureCatalog.find(f=>f.kind===item.kind)?.name??'Objeto',kind:item.kind}:null);render();}else onSelect(selection);}
  const contextLost=(e:Event)=>{e.preventDefault();stopWalk();onError('Se interrumpió la visualización 3D. Volvé a la planta y abrí el visor nuevamente. Tu dibujo sigue guardado.');};
- canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('webglcontextlost',contextLost);
+ canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('pointermove',pointerMove);canvas.addEventListener('pointercancel',pointerCancel);canvas.addEventListener('webglcontextlost',contextLost);
  const observer=new ResizeObserver(size);observer.observe(host);update(model);setMode('3d');
  return {update,setMode,setSelected,setObserver,setWalk,stopWalk,walkInput:(a:WalkAction,p:boolean)=>walker?.input(a,p),walkAct:(a:WalkAbility)=>walker?.act(a),walkMode:(m:WalkCameraMode)=>walker?.setMode(m),look:(x:number,y:number)=>{if(walker)walker.look(x,y);else personCamera.look(x,y);},fit,zoom:(factor:number)=>{if(walker){walker.zoom(factor);return;}if(personCamera.active){personCamera.zoom(factor);return;}camera.zoom=THREE.MathUtils.clamp(camera.zoom*factor,.1,30);camera.updateProjectionMatrix();render();},
-  exportPng:async()=>{const previous=selected;setSelected(null);try{return await new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('No se pudo generar la imagen.')),'image/png'));}finally{setSelected(previous);}},
-  dispose:()=>{closed=true;stopWalk();observer.disconnect();personCamera.dispose();controls.dispose();canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('webglcontextlost',contextLost);disposeGroup(group);if(grid)disposeGroup(grid);finishes.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();}
+  exportPng:async()=>{const previous=selected;setSelected(null);try{return await new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('No se pudo generar la imagen.')),'image/png'));}finally{setSelected(previous);if(walker){furnitureScene?.setSelected(walkSelection);render();}}},
+  dispose:()=>{closed=true;stopWalk();observer.disconnect();personCamera.dispose();controls.dispose();canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('pointermove',pointerMove);canvas.removeEventListener('pointercancel',pointerCancel);canvas.removeEventListener('webglcontextlost',contextLost);disposeGroup(group);if(grid)disposeGroup(grid);finishes.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();}
  };
 }

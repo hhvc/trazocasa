@@ -414,3 +414,11 @@ Durante **Controlar persona**, acercarse de pie y mirar hacia una mesa, escritor
 La animación bloquea el movimiento, el salto y el cambio de postura hasta terminar. Sobre el objeto se puede caminar dentro de la superficie de apoyo; para salir, usar **E / Bajar**. Se busca una salida segura hacia delante, atrás o los laterales, sin caer en huecos ni fuera de una planta superior. Si no existe una trayectoria válida, no se ofrece la acción.
 
 Perder el foco o cambiar de cámara durante la transición cancela la acción y restaura la posición y distancia recorrida anteriores. El recorrido no modifica la posición guardada ni el proyecto. Las superficies pequeñas y los demás tipos de muebles quedan excluidos; esto no habilita escalada libre. Las colisiones siguen usando volúmenes conservadores del mobiliario.
+
+### Seleccionar objetos durante el recorrido
+
+Tocá o hacé clic sin arrastrar sobre un mueble en el visor 3D para resaltarlo y ver su nombre y sus acciones. Arrastrar sigue cambiando la mirada. La selección es temporal y no modifica el proyecto.
+
+Con un objeto seleccionado, **E** y **Subir / Bajar** actúan exclusivamente sobre él. Ya no es necesario orientar la mirada con precisión: la persona se orienta al iniciar la acción. Sigue siendo necesario acercarse y tener altura, apoyo y trayectoria seguros. Si no se puede actuar, el panel explica el motivo: distancia, superficie pequeña, altura, postura o espacio bloqueado. La mesa de luz predeterminada de 50 × 40 cm, por ejemplo, no admite el apoyo completo de una persona adulta.
+
+Tocá un espacio vacío o **×** para quitar la selección y volver a las sugerencias por proximidad. **Volver al inicio** también limpia la selección. Los vehículos se pueden seleccionar, pero conducir todavía no está implementado; se informa en el panel.

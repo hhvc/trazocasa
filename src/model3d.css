@@ -9,3 +9,5 @@
 .walk-abilities{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px}.walk-abilities button{min-height:44px}.walk-abilities kbd{font:inherit;font-size:10px;opacity:.65;margin-left:5px}@media(max-width:650px){.walk-abilities{bottom:112px}.walk-abilities kbd{display:none}}
 
 .walk-abilities .walk-climb{background:#315747;color:white;border-color:#315747}.walk-abilities{max-width:calc(100% - 24px)}
+
+.walk-interaction{position:absolute;bottom:66px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fffefaed;border:1px solid #d7ded2;border-radius:8px;font-size:12px;pointer-events:none}.walk-interaction span{white-space:normal}.walk-interaction strong{flex-shrink:0}.walk-interaction button{pointer-events:auto}.walk-interaction:has(strong){max-width:min(460px,calc(100% - 24px))}@media(max-width:650px){.walk-interaction{bottom:164px;width:calc(100% - 24px);font-size:11px;flex-wrap:wrap}.walk-interaction span{flex:1;min-width:130px}.walk-interaction button{margin-left:auto}}

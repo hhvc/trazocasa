@@ -7,7 +7,7 @@ async function moduleUrl(file,deps={}){let source=ts.transpileModule(await readF
 const modelUrl=await moduleUrl('./model.ts'),heightsUrl=await moduleUrl('./furnitureHeights.ts');
 const {emptyPlan,validatePlan,validateBuilding,buildingFromPlan,addFloor}=await import(modelUrl);
 const volumesUrl=await moduleUrl('./model3d.ts',{'./model':modelUrl}),{buildingVolumes}=await import(volumesUrl);
-const climbUrl=await moduleUrl('./climb.ts'),{findClimbAction,climbMotion,containsClimbSurface}=await import(climbUrl);
+const climbUrl=await moduleUrl('./climb.ts'),{findClimbAction,climbMotion,containsClimbSurface,selectedClimb}=await import(climbUrl);
 const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./climb':climbUrl,'./furnitureHeights':heightsUrl,'./stairGeometry':await moduleUrl('./stairGeometry.ts')}),{createWalkWorld,moveWalker,walkDelta}=await import(physicsUrl);
 const motionUrl=await moduleUrl('./walkMotion.ts',{'./climb':climbUrl,'./walkPhysics':physicsUrl});
 const {advanceWalk,initialMotion,toggleCrouch,jump,verticalStep,bodyHeight}=await import(motionUrl);
@@ -244,4 +244,39 @@ test('blur, camera changes and disposal interrupt transfers at their original sa
   const h=harness([],false,world(climbProject()));h.tick(0);h.controller.act('climb');for(let i=1;i<=13;i++)h.tick(i*50);assert.ok(h.avatar.root.position.y>0);cancel(h);close(h.avatar.root.position.y,0);close(h.avatar.root.position.z,-1.1);assert.ok(!h.reports.at(-1).climb.active);assert.equal(h.reports.at(-1).distance,0);h.controller.dispose();assert.equal(h.queued,false);
  }
  const h=harness([],false,world(climbProject()));h.tick(0);h.controller.act('climb');h.tick(10000);assert.ok(h.reports.at(-1).climb.active);h.controller.dispose();assert.equal(h.queued,false);assert.equal(h.canvas.count()+h.win.count()+h.doc.count(),0);
+});
+
+test('explicit object selection removes facing requirements but preserves reach and collision checks',()=>{
+ const w=world(climbProject()),m=initialMotion(w),target={key:w.climbSurfaces[0].key,name:'Mesa',kind:'table'};
+ assert.equal(findClimbAction(w,m,Math.PI),null);assert.ok(selectedClimb(w,m,Math.PI,target).action);
+ assert.match(selectedClimb(w,{...m,position:{x:0,z:-4}},0,target).reason,/Acercate/);
+ const blocked=world(climbProject(climbTable(),{walls:[{...wall,a:{x:-2,y:-.75},b:{x:2,y:-.75},height:3}]}));
+ assert.equal(selectedClimb(blocked,initialMotion(blocked),0,{...target,key:blocked.climbSurfaces[0].key}).action,null);
+});
+test('selected objects explain small surfaces, height, posture and unavailable vehicles',()=>{
+ for(const [item,reason] of [[climbTable({kind:'nightstand',width:.5,depth:.4,height:.55}),/pequeña/],[climbTable({height:1.2}),/altura máxima/]]){
+  const w=world(climbProject(item));assert.match(selectedClimb(w,initialMotion(w),0,{key:w.climbSurfaces[0].key,name:'Objeto',kind:item.kind}).reason,reason);
+ }
+ const w=world(climbProject()),target={key:w.climbSurfaces[0].key,name:'Mesa',kind:'table'};
+ assert.match(selectedClimb(w,toggleCrouch(w,initialMotion(w)),0,target).reason,/Levantate/);
+ assert.match(selectedClimb(w,initialMotion(w),0,{key:'car',name:'Auto',kind:'smallCar'}).reason,/vehículos/);
+});
+test('selected target never falls back to another nearby furniture action and updates after moving',()=>{
+ const w=world(climbProject()),h=harness([],false,w),target={key:w.climbSurfaces[0].key,name:'Mesa',kind:'table'};
+ h.controller.selectTarget({key:'car',name:'Auto',kind:'smallCar'});assert.equal(h.reports.at(-1).climb,null);h.controller.act('climb');assert.equal(h.reports.at(-1).climb,null);
+ h.controller.look(Math.PI,0);h.controller.selectTarget(target);assert.equal(h.reports.at(-1).climb.kind,'up');assert.equal(h.reports.at(-1).interaction.name,'Mesa');
+ h.controller.act('climb');h.controller.selectTarget(null);assert.equal(h.reports.at(-1).interaction.name,'Mesa');
+ h.win.fire('blur');close(h.avatar.root.position.y,0);assert.equal(h.reports.at(-1).climb.active,false);
+ h.controller.act('clearSelection');assert.equal(h.reports.at(-1).interaction,null);assert.equal(h.reports.at(-1).climb.kind,'up');
+ h.controller.selectTarget(target);h.controller.reset();assert.equal(h.reports.at(-1).interaction,null);h.controller.dispose();
+});
+
+test('selected object feedback changes from too far to an available action while approaching',()=>{
+ const b=climbProject();b.floors[0].plan.furniture[0].y=-2.5;
+ const w=world(b),before=JSON.stringify(b),h=harness([],false,w);
+ h.controller.selectTarget({key:w.climbSurfaces[0].key,name:'Mesa',kind:'table'});
+ assert.match(h.reports.at(-1).interaction.reason,/Acercate/);assert.equal(h.reports.at(-1).climb,null);
+ h.tick(0);h.controller.input('forward',true);for(let i=1;i<=20;i++)h.tick(i*50);h.controller.input('forward',false);h.tick(1100);
+ assert.equal(h.reports.at(-1).interaction.reason,'');assert.equal(h.reports.at(-1).climb.kind,'up');
+ assert.equal(JSON.stringify(b),before);h.controller.dispose();
 });
