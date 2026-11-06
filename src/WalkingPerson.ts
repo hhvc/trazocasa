@@ -26,7 +26,14 @@ export function createWalkingPerson(item:Furniture,finishes:FinishLibrary){
   else{const arm=Math.abs(x)>.3&&y<.8?arms[x<0?0:1]:null;node.position.set(...part.position).multiply(size);if(arm)node.position.sub(arm.position);(arm??body).add(node);}
   node.scale.set(...part.scale).multiply(size);if(part.rotation)node.rotation.set(...part.rotation);
  }
- return {root,pose(distance:number,moving:boolean,crouched=false,airborne=false,climbPhase=0){
+ return {root,pose(distance:number,moving:boolean,crouched=false,airborne=false,climbPhase=0,seatHeight?:number){
+  if(seatHeight!==undefined){
+   // Pelvis rests on the cushion; the lower legs stay vertical and feet on the floor.
+   const drop=.44*height-seatHeight,bend=Math.acos(THREE.MathUtils.clamp((seatHeight-.23*height)/(.21*height),-1,1));
+   body.position.set(0,-drop,0);
+   legs.forEach(({hip,knee,foot},i)=>{hip.position.set((i?1:-1)*.17*item.width,.49*height-drop,0);hip.rotation.x=-bend;knee.rotation.x=bend;foot.rotation.x=0;});
+   arms.forEach(arm=>arm.rotation.x=-.7);return;
+  }
   const climbing=Math.sin(Math.PI*climbPhase);
   const drop=crouched?.3*height:0,back=crouched?.09*height:0,bend=crouched?Math.acos(2/7):airborne?.25:0;
   const stride=moving?Math.sin(distance*9)*(crouched?.16:.48):0;

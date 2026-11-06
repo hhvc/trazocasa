@@ -126,3 +126,13 @@ test('temporary car transforms update instances, outlines, picking and restore w
  const ray=new Raycaster(new Vector3(8,10,3),new Vector3(0,-1,0));assert.deepEqual(selectionFromIntersection(ray.intersectObjects(s.selectable,false)[0]),selection);
  s.move(selection,car,0);s.selectable.forEach((mesh,i)=>assert.deepEqual(Array.from(mesh.instanceMatrix.array),original[i]));assert.equal(JSON.stringify(b),before);dispose(s.group);s.disposeTextures();
 });
+
+test('seated posture rests pelvis on cushion, keeps feet on floor and restores standing without new resources',()=>{
+ const finishes=createFinishLibrary(),actor=createWalkingPerson(item('person',{height:1.7}),finishes),resources=new Set();actor.root.traverse(o=>{if(o.geometry)resources.add(o.geometry);if(o.material)resources.add(o.material);});
+ for(const height of [.34,.4845,.522,.646]){
+  actor.pose(0,false,false,false,0,height);actor.root.updateMatrixWorld(true);const box=new Box3().setFromObject(actor.root);close(box.min.y,0);close(box.max.y,height+.56*1.7);
+  const [body,...legs]=actor.root.children,pelvis=body.children.find(o=>o.isMesh&&Math.abs(o.position.y-.5*1.7)<.00001);close(new Box3().setFromObject(pelvis).min.y,height);
+  for(const hip of legs){const knee=hip.children.find(o=>o.isGroup),foot=knee.children.find(o=>o.isGroup);close(new Box3().setFromObject(foot).min.y,0);assert.ok(knee.getWorldPosition(new Vector3()).z>hip.position.z);}
+ }
+ actor.pose(0,false);actor.root.updateMatrixWorld(true);const standing=new Box3().setFromObject(actor.root);close(standing.min.y,0);close(standing.max.y,1.7);actor.root.traverse(o=>{if(o.geometry)assert.ok(resources.has(o.geometry));if(o.material)assert.ok(resources.has(o.material));});actor.dispose();finishes.dispose();
+});

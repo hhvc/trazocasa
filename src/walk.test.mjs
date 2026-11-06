@@ -12,7 +12,8 @@ const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./climb':climbUrl,'./furni
 const motionUrl=await moduleUrl('./walkMotion.ts',{'./climb':climbUrl,'./walkPhysics':physicsUrl});
 const {advanceWalk,initialMotion,toggleCrouch,jump,verticalStep,bodyHeight}=await import(motionUrl);
 const vehicleUrl=await moduleUrl('./vehicle.ts'),{vehicleCandidate,vehicleEntryReason,advanceVehicle,vehicleExit,vehicleItem}=await import(vehicleUrl);
-const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'./vehicle':vehicleUrl,'./climb':climbUrl,'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
+const seatingUrl=await moduleUrl('./seating.ts',{'./furnitureHeights':heightsUrl}),{selectedSeat,seatExit}=await import(seatingUrl);
+const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'./seating':seatingUrl,'./vehicle':vehicleUrl,'./climb':climbUrl,'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
 const person=(extra={})=>({id:'person',kind:'person',x:3,y:1,width:.6,depth:.4,rotation:180,...extra});
 const wall={id:'wall',a:{x:0,y:0},b:{x:6,y:0},thickness:.1};
 const rectangle=(x,y,w,d)=>[{x,y},{x:x+w,y},{x:x+w,y:y+d},{x,y:y+d}];
@@ -65,7 +66,7 @@ function target(){const events=new Map();return {events,addEventListener(name,fn
 function harness(obstacles=[],useDefaultClock=false,overrideWorld,onVehicle){
  const win=target(),doc={...target(),defaultView:win},canvas={...target(),ownerDocument:doc,style:{cursor:'default'},focus(){},setPointerCapture(){},hasPointerCapture(){return false;},releasePointerCapture(){}};
  let callback,id=0;const clock={request(cb){callback=cb;return ++id;},cancel(){callback=undefined;}};
- const avatar={root:new Group(),poses:[],pose(d,m){this.poses.push([d,m]);}},reports=[];
+ const avatar={root:new Group(),poses:[],pose(...args){this.poses.push(args);}},reports=[];
  const w=overrideWorld??world(project({},person({x:0,y:0,rotation:0}))),controller=createWalkController(canvas,w,avatar,obstacles,()=>{},p=>reports.push(p),useDefaultClock?undefined:clock,onVehicle);
  return {win,doc,canvas,avatar,reports,controller,tick(t){const next=callback;callback=undefined;next?.(t);},get queued(){return !!callback;}};
 }
@@ -326,4 +327,56 @@ test('E enters, keyboard drives and brakes, focus loss stops, exit uses moved co
 test('touch driving stops on blur and disposal restores the saved vehicle',()=>{
  const w=world(carProject()),changes=[],h=harness([],false,w,c=>changes.push(c));h.controller.selectTarget({key:carIn(w).key,name:'Auto',kind:'smallCar'});h.controller.act('climb');h.tick(0);h.controller.input('forward',true);h.controller.input('right',true);for(let i=1;i<=20;i++)h.tick(i*50);
  assert.ok(changes.at(-1).item.rotation>0);h.win.fire('blur');close(h.reports.at(-1).vehicle.speed,0);const stop=JSON.stringify(changes.at(-1));h.tick(1050);h.tick(1100);assert.equal(JSON.stringify(changes.at(-1)),stop);h.controller.dispose();assert.deepEqual(changes.at(-1).item,carItem());assert.equal(h.canvas.count()+h.win.count()+h.doc.count(),0);
+});
+
+const seatItem=(extra={})=>({id:'seat',kind:'chair',x:0,y:0,width:.45,depth:.5,rotation:0,...extra});
+function seatProject(extra={},seat=seatItem(),p=person({x:0,y:1,rotation:180})){return project({furniture:[p,seat],...extra},p);}
+const seatTarget=(w,index=0)=>({key:JSON.stringify([w.model[index].id,'seat']),name:'Asiento',kind:w.model[index].furniture.find(i=>i.id==='seat').kind});
+test('catalog chairs and each sofa cushion support seated selection and safe exit',()=>{
+ for(const [kind,width,depth] of [['chair',.45,.5],['armchair',.85,.85],['sofa',2.1,.9],['sofa3',2.4,.95]]){
+  const count=kind==='sofa3'?3:kind==='sofa'?2:1;
+  for(let i=0;i<count;i++){const x=(i-(count-1)/2)*width*.77/count,w=world(seatProject({},seatItem({kind,width,depth}),person({x,y:1.1}))),result=selectedSeat(w,initialMotion(w),seatTarget(w));
+   assert.ok(result.place,result.reason);close(result.place.x,x);assert.ok(seatExit(w,result.place));assert.ok(!w.canOccupy(result.place.position));
+  }
+ }
+});
+test('seating explains distance, approach, posture and body-size limitations',()=>{
+ const w=world(seatProject()),m=initialMotion(w),t=seatTarget(w);
+ for(const [motion,reason] of [[{...m,position:{x:0,z:4}},/Acercate/],[{...m,position:{x:0,z:-1}},/delante/],[{...m,crouched:true},/de pie/],[{...m,grounded:false},/apoyado/],[{...m,feet:3},/piso/],[{...m,platform:'table'},/piso/]])assert.match(selectedSeat(w,motion,t).reason,reason);
+ for(const [change,reason] of [[{width:.2},/angosto/],[{depth:.2},/corto/],[{height:2},/altura/],[{height:.3},/altura/]]){
+  const bad=world(seatProject({},seatItem(change)));assert.match(selectedSeat(bad,initialMotion(bad),seatTarget(bad)).reason,reason);
+ }
+ const child=world(seatProject({},seatItem({width:.25,depth:.25,height:.45}),person({x:0,y:.7,height:.85,width:.3,depth:.2})));assert.ok(selectedSeat(child,initialMotion(child),seatTarget(child)).place);
+});
+test('seating paths cannot cross thin walls, other furniture, low roofs or floor holes',()=>{
+ const fixtures=[{walls:[{...wall,a:{x:-2,y:.65},b:{x:2,y:.65},thickness:.05}]},{furniture:[person({x:0,y:1}),seatItem(),{id:'obstacle',kind:'nightstand',x:0,y:.55,width:.2,depth:.2,height:.3,rotation:0}]},{surfaces:[{id:'roof',name:'Techo',points:rectangle(-.4,-.4,.8,.8),roof:{height:1.3,thickness:.1}}]},{surfaces:[{id:'floor',name:'Piso',points:rectangle(-3,-3,6,6),slab:{thickness:.2},holes:[{id:'hole',name:'Hueco',target:'slab',points:rectangle(-.05,.35,.1,.1)}]}]}];
+ for(const extra of fixtures){const w=world(seatProject(extra)),result=selectedSeat(w,initialMotion(w),seatTarget(w));assert.equal(result.place,null);assert.match(result.reason,/espacio/);}
+ const w=world(seatProject()),t=seatTarget(w);assert.ok(w.isClear({x:0,z:0},{base:0,height:1.7},t.key));assert.equal(w.isClear({x:0,z:0},{base:0,height:1.7},'wrong-seat'),false);
+});
+test('seats follow rotation and floor elevation, reject unsupported elevated furniture',()=>{
+ for(const rotation of [0,45,90,180,270]){
+  const a=rotation*Math.PI/180,p=person({x:-Math.sin(a),y:Math.cos(a)}),b=seatProject({surfaces:[{id:'floor',name:'Piso',points:rectangle(-3,-3,6,6),slab:{thickness:.2}}]},seatItem({rotation}),p),upper=addFloor(b,'Alta','copy'),w=world(upper,1),s=selectedSeat(w,initialMotion(w),seatTarget(w,1));
+  assert.ok(s.place,s.reason);close(s.place.yaw,a);close(s.place.base,w.base);assert.ok(s.place.base>0);assert.ok(seatExit(w,s.place));
+  const withoutSlab={...upper,floors:upper.floors.map((f,i)=>i?{...f,plan:{...f.plan,surfaces:[]}}:f)},bad=world(withoutSlab,1);assert.equal(selectedSeat(bad,initialMotion(bad),seatTarget(bad,1)).place,null);
+ }
+ const w=world(seatProject({},seatItem({elevation:.4})));assert.match(selectedSeat(w,initialMotion(w),seatTarget(w)).reason,/piso/);
+});
+test('standing chooses a free side for chairs and refuses blocked exits and upper-floor holes',()=>{
+ const w=world(seatProject()),s=selectedSeat(w,initialMotion(w),seatTarget(w)).place;
+ const front={...wall,a:{x:-2,y:.65},b:{x:2,y:.65},thickness:.05},side=world(seatProject({walls:[front]})),exit=seatExit(side,{...s,key:seatTarget(side).key});assert.ok(exit&&Math.abs(exit.x)>.5);
+ const blocked=world(seatProject({walls:[front,{...wall,id:'left',a:{x:-.4,y:-1},b:{x:-.4,y:1}},{...wall,id:'right',a:{x:.4,y:-1},b:{x:.4,y:1}}]}));assert.equal(seatExit(blocked,{...s,key:seatTarget(blocked).key}),null);
+ const upper=addFloor(seatProject({surfaces:[{id:'floor',name:'Piso',points:rectangle(-3,-3,6,6),slab:{thickness:.2}}]}),'Alta','copy'),up=world(upper,1),place=selectedSeat(up,initialMotion(up),seatTarget(up,1)).place;
+ const unsupported=createWalkWorld(up.model.map((f,i)=>i?{...f,plates:[]}:f),up.selection);assert.equal(seatExit(unsupported,place),null);
+});
+test('E seats, preserves body orientation while looking, blocks motion and restores standing without saving',()=>{
+ const b=seatProject(),before=JSON.stringify(b),w=world(b),h=harness([],false,w);h.controller.selectTarget(seatTarget(w));assert.ok(h.reports.at(-1).seat.canSit);
+ h.canvas.fire('keydown',{code:'KeyE'});assert.ok(h.reports.at(-1).seat.active);const pos=h.avatar.root.position.clone(),rotation=h.avatar.root.rotation.y;assert.ok(h.avatar.poses.at(-1)[5]>0);
+ h.tick(0);h.canvas.fire('keydown',{code:'KeyW'});h.controller.input('right',true);h.controller.act('jump');h.controller.act('crouch');h.controller.act('clearSelection');h.canvas.fire('keydown',{code:'KeyE',repeat:true});h.tick(50);
+ assert.ok(h.reports.at(-1).seat.active);assert.ok(h.avatar.root.position.equals(pos));h.controller.look(.8,.1);close(h.avatar.root.rotation.y,rotation);
+ h.controller.setMode('first');close(h.controller.camera.position.y,.522+1.7*.49);assert.equal(h.avatar.root.visible,false);h.win.fire('blur');h.doc.fire('visibilitychange');assert.ok(h.reports.at(-1).seat.active);h.controller.setMode('third');assert.ok(h.avatar.root.visible);
+ h.controller.act('climb');assert.equal(h.reports.at(-1).seat.active,false);assert.ok(w.canOccupy({x:h.avatar.root.position.x,z:h.avatar.root.position.z}));assert.equal(h.avatar.poses.at(-1)[5],undefined);
+ const after=h.avatar.root.position.clone();h.tick(100);h.tick(150);assert.ok(h.avatar.root.position.equals(after));h.controller.act('climb');assert.ok(h.reports.at(-1).seat.active);h.controller.reset();close(h.avatar.root.position.z,1);assert.equal(h.reports.at(-1).seat,null);assert.equal(h.reports.at(-1).interaction,null);assert.equal(JSON.stringify(b),before);h.controller.dispose();assert.equal(h.queued,false);assert.equal(h.canvas.count()+h.win.count()+h.doc.count(),0);
+});
+test('an unavailable seat stays selected and a failed exit keeps the character seated',()=>{
+ const w=world(seatProject()),h=harness([],false,w);h.controller.selectTarget(seatTarget(w));h.controller.act('climb');const old=w.canOccupy;w.canOccupy=()=>false;h.controller.act('climb');assert.ok(h.reports.at(-1).seat.active);assert.match(h.reports.at(-1).interaction.reason,/levantarse/);w.canOccupy=old;h.controller.act('climb');h.controller.reset();h.controller.act('crouch');h.controller.selectTarget(seatTarget(w));assert.equal(h.reports.at(-1).seat.canSit,false);h.controller.act('climb');assert.equal(h.reports.at(-1).seat.active,false);h.controller.dispose();
 });

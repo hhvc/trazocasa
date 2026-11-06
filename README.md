@@ -439,3 +439,13 @@ La cámara sigue al vehículo desde atrás. Los controles inferiores se adaptan 
 El auto conserva su posición temporal al salir, para poder caminar alrededor y volver a entrar. **Volver al inicio**, **Terminar recorrido**, Escape o cerrar el visor restauran los autos y la persona. Las posiciones recorridas no cambian el plano, el historial ni los archivos guardados.
 
 Esta primera versión comprueba la huella completa del vehículo contra muros, ventanas, muebles, techos bajos y huecos. Usa volúmenes conservadores: no atraviesa escaleras ni permite subir rampas, circular por plantas superiores o conducir autos medianos/camionetas. No simula suspensión, ruedas, apertura de puertas ni la animación de sentarse; la persona se oculta mientras conduce. Los recortes en techos se consideran sólidos para el espacio libre del auto.
+
+### Sentarse y levantarse
+
+En **Controlar persona**, acercarse de pie por delante de una **silla, sillón individual, sofá o sofá de tres cuerpos**, seleccionarlo y usar **Sentarse / E**. En los sofás se elige el cojín accesible más cercano. La figura se orienta con el asiento, flexiona caderas y rodillas y apoya los pies en el piso. La cámara acompaña la altura sentada; se puede mirar alrededor y alternar primera y tercera persona sin girar el cuerpo.
+
+**Levantarse / E** busca una salida con espacio para estar de pie y apoyo en el mismo nivel. En sillas también considera los laterales; en sillones y sofás sale por delante, sin atravesar los apoyabrazos. Si no hay salida, conserva la postura y explica el motivo. **Volver al inicio** siempre permite recuperar la posición original.
+
+Mientras está sentada, la persona no camina, salta, se agacha ni selecciona otro objeto. Perder el foco libera los controles y mantiene la postura. La selección muestra el motivo si falta cercanía, espacio, apoyo o si las dimensiones del mueble no se adaptan a la figura; el botón Sentarse queda deshabilitado. Se comprueban las trayectorias, muros, otros muebles, techos y huecos también en plantas superiores.
+
+La postura es temporal y no altera el proyecto ni su historial. La entrada y salida cambian de postura directamente, sin una transición animada. Se reserva espacio conservador de cuerpo completo para el acceso, y se requiere que el asiento esté apoyado al nivel del piso de la persona; esto no permite sentarse en camas, inodoros ni vehículos. No se agregan modelos externos ni dependencias.

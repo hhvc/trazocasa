@@ -69,18 +69,18 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
   const touched=candidates.filter(s=>[...samples,...contacts(p,radius,s.points)].some(q=>within(q,s)));
   return Math.max(...touched.map(s=>s.height),...(ground&&samples.some(groundAt)?[groundLevel]:[]));
  }
- function verticalIntervals(pos:WalkPoint){
+ function verticalIntervals(pos:WalkPoint,ignoreKey?:string){
   const p={x:pos.x,y:pos.z},spans:{bottom:number;top:number}[]=[];
-  for(const b of blocks){const top=contactTop(b,p,radius);if(top!==null)spans.push({bottom:b.bottom,top});}
+  for(const b of blocks){if(ignoreKey&&b.key===ignoreKey)continue;const top=contactTop(b,p,radius);if(top!==null)spans.push({bottom:b.bottom,top});}
   for(const plate of plates){
    const footprint=[...contacts(p,radius,plate.points),...Array.from({length:24},(_,i)=>({x:p.x+Math.cos(i*Math.PI/12)*radius,y:p.y+Math.sin(i*Math.PI/12)*radius})).filter(q=>inside(q,plate.points))];
    for(const q of footprint){if(plate.holes.some(h=>inside(q,h)))continue;const bottom=plate.level+(plate.planes?Math.min(...plate.planes.map(v=>v.a*q.x+v.b*q.y+v.c)):plate.bottom);spans.push({bottom,top:bottom+plate.top-plate.bottom});}
   }
   return spans;
  }
- function isClear(pos:WalkPoint,body:WalkBody){
+ function isClear(pos:WalkPoint,body:WalkBody,ignoreKey?:string){
   if(![pos.x,pos.z,body.base,body.height].every(Number.isFinite)||body.base<groundLevel-epsilon||body.height<=0)return false;
-  return !verticalIntervals(pos).some(span=>span.bottom<body.base+body.height-epsilon&&span.top>body.base+epsilon);
+  return !verticalIntervals(pos,ignoreKey).some(span=>span.bottom<body.base+body.height-epsilon&&span.top>body.base+epsilon);
  }
  function canOccupy(pos:WalkPoint,body:WalkBody={base,height}){
   return isClear(pos,body)&&navigationSupport(pos,body.navigation??base,body.base+maxWalkStep)!==null;
