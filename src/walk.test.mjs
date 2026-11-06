@@ -11,7 +11,8 @@ const climbUrl=await moduleUrl('./climb.ts'),{findClimbAction,climbMotion,contai
 const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./climb':climbUrl,'./furnitureHeights':heightsUrl,'./stairGeometry':await moduleUrl('./stairGeometry.ts')}),{createWalkWorld,moveWalker,walkDelta}=await import(physicsUrl);
 const motionUrl=await moduleUrl('./walkMotion.ts',{'./climb':climbUrl,'./walkPhysics':physicsUrl});
 const {advanceWalk,initialMotion,toggleCrouch,jump,verticalStep,bodyHeight}=await import(motionUrl);
-const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'./climb':climbUrl,'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
+const vehicleUrl=await moduleUrl('./vehicle.ts'),{vehicleCandidate,vehicleEntryReason,advanceVehicle,vehicleExit,vehicleItem}=await import(vehicleUrl);
+const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'./vehicle':vehicleUrl,'./climb':climbUrl,'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
 const person=(extra={})=>({id:'person',kind:'person',x:3,y:1,width:.6,depth:.4,rotation:180,...extra});
 const wall={id:'wall',a:{x:0,y:0},b:{x:6,y:0},thickness:.1};
 const rectangle=(x,y,w,d)=>[{x,y},{x:x+w,y},{x:x+w,y:y+d},{x,y:y+d}];
@@ -61,11 +62,11 @@ test('collision construction and temporary motion do not change the saved plan',
  const b=project({walls:[wall]}),before=JSON.stringify(b),w=world(b);walk(w,w.start,.05,0);assert.equal(JSON.stringify(b),before);assert.throws(()=>createWalkWorld([], {floorId:'missing',elementId:'person'}));
 });
 function target(){const events=new Map();return {events,addEventListener(name,fn){const set=events.get(name)??new Set();set.add(fn);events.set(name,set);},removeEventListener(name,fn){events.get(name)?.delete(fn);},fire(name,props={}){const e={preventDefault(){this.prevented=true;},...props};for(const fn of events.get(name)??[])fn(e);return e;},count(){return [...events.values()].reduce((n,s)=>n+s.size,0);}};}
-function harness(obstacles=[],useDefaultClock=false,overrideWorld){
+function harness(obstacles=[],useDefaultClock=false,overrideWorld,onVehicle){
  const win=target(),doc={...target(),defaultView:win},canvas={...target(),ownerDocument:doc,style:{cursor:'default'},focus(){},setPointerCapture(){},hasPointerCapture(){return false;},releasePointerCapture(){}};
  let callback,id=0;const clock={request(cb){callback=cb;return ++id;},cancel(){callback=undefined;}};
  const avatar={root:new Group(),poses:[],pose(d,m){this.poses.push([d,m]);}},reports=[];
- const w=overrideWorld??world(project({},person({x:0,y:0,rotation:0}))),controller=createWalkController(canvas,w,avatar,obstacles,()=>{},p=>reports.push(p),useDefaultClock?undefined:clock);
+ const w=overrideWorld??world(project({},person({x:0,y:0,rotation:0}))),controller=createWalkController(canvas,w,avatar,obstacles,()=>{},p=>reports.push(p),useDefaultClock?undefined:clock,onVehicle);
  return {win,doc,canvas,avatar,reports,controller,tick(t){const next=callback;callback=undefined;next?.(t);},get queued(){return !!callback;}};
 }
 test('keyboard walking, reset, camera toggle and animation preserve the original spawn',()=>{
@@ -279,4 +280,50 @@ test('selected object feedback changes from too far to an available action while
  h.tick(0);h.controller.input('forward',true);for(let i=1;i<=20;i++)h.tick(i*50);h.controller.input('forward',false);h.tick(1100);
  assert.equal(h.reports.at(-1).interaction.reason,'');assert.equal(h.reports.at(-1).climb.kind,'up');
  assert.equal(JSON.stringify(b),before);h.controller.dispose();
+});
+
+const carItem=(extra={})=>({id:'car',kind:'smallCar',x:0,y:0,width:1.7,depth:3.8,rotation:0,...extra});
+function carProject(extra={},car=carItem()){const p=person({x:-1.45,y:0,rotation:270});return project({furniture:[p,car],...extra},p);}
+const carIn=w=>vehicleCandidate(w,JSON.stringify([w.model[0].id,'car']));
+test('car entry requires a nearby side door, upright person, ground floor and no intervening wall',()=>{
+ const w=world(carProject()),car=carIn(w),m=initialMotion(w);assert.equal(vehicleEntryReason(w,m,car),'');
+ assert.match(vehicleEntryReason(w,{...m,position:{x:0,z:-3}},car),/laterales/);
+ assert.match(vehicleEntryReason(w,{...m,crouched:true},car),/de pie/);
+ assert.match(vehicleEntryReason(w,{...m,feet:3},car),/planta baja/);
+ assert.match(vehicleEntryReason(w,m,{...car,floorId:'upper'}),/planta baja/);
+ assert.match(vehicleEntryReason(w,m,{...car,item:{...car.item,kind:'pickup'}}),/auto chico/);
+ const blocked=world(carProject({walls:[{...wall,a:{x:-1.2,y:-2},b:{x:-1.2,y:2},thickness:.05}]}));assert.notEqual(vehicleEntryReason(blocked,initialMotion(blocked),carIn(blocked)),'');
+});
+test('car acceleration, steering, reversing and braking stay bounded and independent of frame rate',()=>{
+ const w=world(carProject());let results=[];
+ for(const rate of [30,60,120]){let car=carIn(w);for(let i=0;i<rate*2;i++)car=advanceVehicle(w,car,1,0,false,1/rate).car;results.push(car);assert.ok(car.speed<=4&&car.position.z<-4);}
+ assert.ok(Math.abs(results[0].position.z-results[2].position.z)<.03);
+ let car=results[0];for(let i=0;i<100;i++)car=advanceVehicle(w,car,-1,1,false,.05).car;assert.ok(car.speed<0&&car.speed>=-2);assert.ok(Math.abs(car.yaw)>.1);
+ for(let i=0;i<20;i++)car=advanceVehicle(w,car,1,0,true,.05).car;close(car.speed,0);
+ const paused=advanceVehicle(w,car,1,0,false,100);assert.ok(paused.distance<.02);
+});
+test('full car footprint blocks thin walls, furniture, low roofs, stairs and small slab holes',()=>{
+ const wallAhead={...wall,a:{x:-5,y:-3},b:{x:5,y:-3},thickness:.05};
+ const w=world(carProject({walls:[wallAhead]}));let car=carIn(w);for(let i=0;i<200;i++)car=advanceVehicle(w,car,1,0,false,.05).car;assert.ok(car.position.z>-1.1);close(car.speed,0);
+ const fixtures=[{furniture:[person({x:-1.45,y:0}),carItem(),{...climbTable({x:0,y:-3})}]},{surfaces:[{id:'roof',name:'Techo',points:rectangle(-2,-4,4,8),roof:{height:1.2,thickness:.1}}]},{surfaces:[{id:'floor',name:'Piso',points:rectangle(-5,-5,10,10),slab:{thickness:.2},holes:[{id:'hole',name:'Hueco',target:'slab',points:rectangle(.1,.1,.1,.1)}]}]},{furniture:[person({x:-1.45,y:0}),carItem(),{id:'stair',kind:'stairs',x:0,y:0,width:1,depth:3,height:1,rotation:0}]}];
+ for(const extra of fixtures){const bad=world(carProject(extra));assert.equal(bad.vehicleClear(carIn(bad).key,{x:0,z:extra.furniture?.some(i=>i.kind==='table')?-1:0},0,1.7,3.8,1.45),false);}
+ const side=world(carProject({walls:[{...wall,a:{x:1.1,y:-5},b:{x:1.1,y:5},thickness:.05}]}));assert.ok(side.vehicleClear(carIn(side).key,{x:0,z:0},0,1.7,3.8,1.45));assert.equal(side.vehicleClear(carIn(side).key,{x:0,z:0},Math.PI/4,1.7,3.8,1.45),false);
+});
+test('car exits choose an open side and refuse both blocked doors or a moving vehicle',()=>{
+ const left={...wall,a:{x:-1.25,y:-3},b:{x:-1.25,y:3},thickness:.05},right={...left,id:'right',a:{x:1.25,y:-3},b:{x:1.25,y:3}};
+ const w=world(carProject({walls:[left]})),car=carIn(w);assert.ok(vehicleExit(w,car).x>0);assert.equal(vehicleExit(w,{...car,speed:1}),null);
+ const blocked=world(carProject({walls:[left,right]}));assert.equal(vehicleExit(blocked,carIn(blocked)),null);
+});
+test('E enters, keyboard drives and brakes, focus loss stops, exit uses moved collision geometry, reset restores',()=>{
+ const b=carProject(),before=JSON.stringify(b),w=world(b),changes=[],h=harness([],false,w,c=>changes.push(c));
+ h.controller.selectTarget({key:carIn(w).key,name:'Auto chico',kind:'smallCar'});assert.ok(h.reports.at(-1).vehicle.canEnter);
+ h.canvas.fire('keydown',{code:'KeyE'});assert.ok(h.reports.at(-1).vehicle.active);assert.equal(h.avatar.root.visible,false);
+ h.tick(0);h.canvas.fire('keydown',{code:'KeyW'});for(let i=1;i<=40;i++)h.tick(i*50);assert.ok(changes.at(-1).item.y<-4);assert.ok(h.reports.at(-1).vehicle.speed>0);
+ h.controller.act('climb');assert.ok(h.reports.at(-1).vehicle.active);h.canvas.fire('keydown',{code:'Space'});for(let i=41;i<=55;i++)h.tick(i*50);close(h.reports.at(-1).vehicle.speed,0);
+ h.win.fire('blur');h.controller.act('climb');assert.ok(!h.reports.at(-1).vehicle?.active);assert.ok(h.avatar.root.visible);assert.ok(h.avatar.root.position.z<-4);close(h.avatar.root.position.y,0);
+ h.controller.reset();assert.deepEqual(changes.at(-1).item,carItem());close(h.avatar.root.position.x,-1.45);assert.equal(JSON.stringify(b),before);h.controller.dispose();assert.equal(h.queued,false);
+});
+test('touch driving stops on blur and disposal restores the saved vehicle',()=>{
+ const w=world(carProject()),changes=[],h=harness([],false,w,c=>changes.push(c));h.controller.selectTarget({key:carIn(w).key,name:'Auto',kind:'smallCar'});h.controller.act('climb');h.tick(0);h.controller.input('forward',true);h.controller.input('right',true);for(let i=1;i<=20;i++)h.tick(i*50);
+ assert.ok(changes.at(-1).item.rotation>0);h.win.fire('blur');close(h.reports.at(-1).vehicle.speed,0);const stop=JSON.stringify(changes.at(-1));h.tick(1050);h.tick(1100);assert.equal(JSON.stringify(changes.at(-1)),stop);h.controller.dispose();assert.deepEqual(changes.at(-1).item,carItem());assert.equal(h.canvas.count()+h.win.count()+h.doc.count(),0);
 });

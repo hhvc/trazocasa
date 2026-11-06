@@ -421,4 +421,21 @@ Tocá o hacé clic sin arrastrar sobre un mueble en el visor 3D para resaltarlo 
 
 Con un objeto seleccionado, **E** y **Subir / Bajar** actúan exclusivamente sobre él. Ya no es necesario orientar la mirada con precisión: la persona se orienta al iniciar la acción. Sigue siendo necesario acercarse y tener altura, apoyo y trayectoria seguros. Si no se puede actuar, el panel explica el motivo: distancia, superficie pequeña, altura, postura o espacio bloqueado. La mesa de luz predeterminada de 50 × 40 cm, por ejemplo, no admite el apoyo completo de una persona adulta.
 
-Tocá un espacio vacío o **×** para quitar la selección y volver a las sugerencias por proximidad. **Volver al inicio** también limpia la selección. Los vehículos se pueden seleccionar, pero conducir todavía no está implementado; se informa en el panel.
+Tocá un espacio vacío o **×** para quitar la selección y volver a las sugerencias por proximidad. **Volver al inicio** también limpia la selección. El auto chico permite entrar y conducir en planta baja; los demás vehículos informan que todavía no se pueden manejar.
+
+
+### Manejar el auto chico
+
+En **Controlar persona**, acercarse de pie a uno de los laterales de un **auto chico**, tocarlo y usar **Entrar al auto / E**. El auto debe estar en la primera planta, sin elevación, con espacio libre y sin huecos debajo. La entrada comprueba que no haya una pared entre la persona y la puerta.
+
+- **W / ↑:** acelerar hacia delante (hasta 4 m/s, aproximadamente 14 km/h).
+- **S / ↓:** frenar y, una vez detenido, retroceder (hasta 2 m/s).
+- **A / D o ← / →:** girar mientras se mueve. La dirección se invierte al retroceder.
+- **Espacio / Frenar:** frenar. Soltar el acelerador también reduce la velocidad.
+- **E / Salir del auto:** salir cuando esté detenido, buscando espacio y apoyo junto a las puertas. Si ambos lados están bloqueados, mover el auto a un lugar despejado.
+
+La cámara sigue al vehículo desde atrás. Los controles inferiores se adaptan para conducir; no se puede saltar, agacharse ni cambiar a primera persona mientras se maneja. Perder el foco detiene el auto y libera los controles.
+
+El auto conserva su posición temporal al salir, para poder caminar alrededor y volver a entrar. **Volver al inicio**, **Terminar recorrido**, Escape o cerrar el visor restauran los autos y la persona. Las posiciones recorridas no cambian el plano, el historial ni los archivos guardados.
+
+Esta primera versión comprueba la huella completa del vehículo contra muros, ventanas, muebles, techos bajos y huecos. Usa volúmenes conservadores: no atraviesa escaleras ni permite subir rampas, circular por plantas superiores o conducir autos medianos/camionetas. No simula suspensión, ruedas, apertura de puertas ni la animación de sentarse; la persona se oculta mientras conduce. Los recortes en techos se consideran sólidos para el espacio libre del auto.

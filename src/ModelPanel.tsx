@@ -114,6 +114,6 @@ export default function ModelPanel({building,plan,onChange,onLevel,onPerson,onFu
  </aside>}
  </div>
  {error&&<div className="model-error" role="alert">{error}<button aria-label="Cerrar error" onClick={()=>setError('')}>×</button></div>}
- <footer>{walking?'WASD o flechas · C: agacharse · Espacio: saltar · E: subir/bajar · Arrastrá para mirar · Esc para terminar':eyes?'Vista fija · Arrastrá para mirar · Flechas con el lienzo enfocado · Esc para volver':mode==='3d'?'Arrastrá para girar · Rueda o dos dedos para zoom · Botón derecho para mover':'Fachada sin perspectiva · Arrastrá para mover · Rueda o dos dedos para zoom'}<span>{scope==='all'?building.floors.length+' plantas':'Planta activa'} · {floor.name}: {level.toFixed(2)} m · Frente: borde inferior del plano.</span></footer>
+ <footer>{walking?'WASD o flechas · E: interactuar · Espacio: saltar / frenar · Arrastrá para mirar · Esc para terminar':eyes?'Vista fija · Arrastrá para mirar · Flechas con el lienzo enfocado · Esc para volver':mode==='3d'?'Arrastrá para girar · Rueda o dos dedos para zoom · Botón derecho para mover':'Fachada sin perspectiva · Arrastrá para mover · Rueda o dos dedos para zoom'}<span>{scope==='all'?building.floors.length+' plantas':'Planta activa'} · {floor.name}: {level.toFixed(2)} m · Frente: borde inferior del plano.</span></footer>
  </section>;
 }

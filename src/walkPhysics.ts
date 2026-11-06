@@ -13,7 +13,7 @@ const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 function closest(p:Point,a:Point,b:Point){const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return {x:a.x+t*dx,y:a.y+t*dy};}
 function inside(p:Point,polygon:Point[]){let yes=false;for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){const a=polygon[i],b=polygon[j];if(Math.hypot(p.x-closest(p,a,b).x,p.y-closest(p,a,b).y)<1e-7)return true;if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)yes=!yes;}return yes;}
 function contacts(p:Point,r:number,polygon:Point[]){const points=inside(p,polygon)?[p]:[];for(let i=0;i<polygon.length;i++){const q=closest(p,polygon[i],polygon[(i+1)%polygon.length]);if(Math.hypot(q.x-p.x,q.y-p.y)<=r)points.push(q);}return points;}
-type Block={x:number;z:number;cos:number;sin:number;halfW:number;halfD:number;bottom:number;top:(p:Point,localX:number)=>number};
+type Block={key?:string;x:number;z:number;cos:number;sin:number;halfW:number;halfD:number;bottom:number;top:(p:Point,localX:number)=>number};
 type Support={points:Point[];holes:Point[][];height:number;treads?:Block[];entry?:{height:number;outside:(q:Point)=>boolean}};
 function contactTop(b:Block,p:Point,r:number){const dx=p.x-b.x,dz=p.y-b.z,x=dx*b.cos+dz*b.sin,z=-dx*b.sin+dz*b.cos,qx=clamp(x,-b.halfW,b.halfW),qz=clamp(z,-b.halfD,b.halfD);if(Math.hypot(x-qx,z-qz)>=r)return null;return b.top({x:b.x+qx*b.cos-qz*b.sin,y:b.z+qx*b.sin+qz*b.cos},qx);}
 /** Architectural visibility never changes collision geometry or connected walking surfaces. */
@@ -37,7 +37,7 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
     if(!treads.length)continue;blocks.push(...treads);
     const points=[[-i.width/2,-i.depth/2],[i.width/2,-i.depth/2],[i.width/2,i.depth/2],[-i.width/2,i.depth/2]].map(([x,z])=>({x:i.x+x*cos-z*sin,y:i.y+x*sin+z*cos}));
     stairSupports.push({points,holes:[],height:bottom+i.height!,treads,...(i.kind==='stairs'?{entry:{height:bottom,outside:(q:Point)=>-(q.x-i.x)*sin+(q.y-i.y)*cos>=i.depth/2-epsilon}}:{})});
-   }else blocks.push({x:i.x,z:i.y,cos,sin,halfW:i.width/2,halfD:i.depth/2,bottom,top:()=>bottom+furnitureHeight(i)});
+   }else blocks.push({key:JSON.stringify([f.id,i.id]),x:i.x,z:i.y,cos,sin,halfW:i.width/2,halfD:i.depth/2,bottom,top:()=>bottom+furnitureHeight(i)});
   }
  }
  const plates=model.flatMap(f=>f.plates.map(p=>({...p,level:f.elevation})));
@@ -85,7 +85,26 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
  function canOccupy(pos:WalkPoint,body:WalkBody={base,height}){
   return isClear(pos,body)&&navigationSupport(pos,body.navigation??base,body.base+maxWalkStep)!==null;
  }
- return {item:item as Furniture,base,height,radius,groundLevel,climbSurfaces,start:{x:item.x,z:item.y},canOccupy,isClear,navigationSupport,verticalIntervals};
+
+ function vehicleClear(key:string,position:WalkPoint,yaw:number,width:number,depth:number,height:number){
+  if(![position.x,position.z,yaw,width,depth,height].every(Number.isFinite)||width<=0||depth<=0||height<=0)return false;
+  const c=Math.cos(yaw),s=Math.sin(yaw),points=[[-width/2-.015,-depth/2-.015],[width/2+.015,-depth/2-.015],[width/2+.015,depth/2+.015],[-width/2-.015,depth/2+.015]].map(([x,z])=>({x:position.x+x*c-z*s,y:position.z+x*s+z*c}));
+  for(const b of blocks){
+   if(b.key===key)continue;
+   const shape=[[-b.halfW,-b.halfD],[b.halfW,-b.halfD],[b.halfW,b.halfD],[-b.halfW,b.halfD]].map(([x,z])=>({x:b.x+x*b.cos-z*b.sin,y:b.z+x*b.sin+z*b.cos}));
+   if(b.bottom>=groundLevel+height-.001||!polygonsTouch(points,shape))continue;
+   if(Math.max(...shape.map(p=>b.top(p,(p.x-b.x)*b.cos+(p.y-b.z)*b.sin)))>groundLevel+.001)return false;
+  }
+  for(const plate of plates){
+   if(plate.kind==='floor'&&Math.abs(plate.level+plate.top-groundLevel)<.001&&plate.holes.some(h=>polygonsTouch(points,h)))return false;
+   if(!polygonsTouch(points,plate.points))continue;
+   // Treat overlapping plates as solid, including their holes, for conservative headroom.
+   const bottoms=[...points,...plate.points].map(q=>plate.level+(plate.planes?Math.min(...plate.planes.map(v=>v.a*q.x+v.b*q.y+v.c)):plate.bottom));
+   if(Math.min(...bottoms)<groundLevel+height-.001&&Math.max(...bottoms)+plate.top-plate.bottom>groundLevel+.001)return false;
+  }
+  return true;
+ }
+ return {model,selection,vehicleClear,item:item as Furniture,base,height,radius,groundLevel,climbSurfaces,start:{x:item.x,z:item.y},canOccupy,isClear,navigationSupport,verticalIntervals};
 }
 /** Short substeps prevent tunneling; axis fallback lets the body slide along obstacles. */
 export function moveWalker(world:WalkWorld,from:WalkPoint,dx:number,dz:number,body?:{base:number;height:number}):WalkPoint{
@@ -96,3 +115,14 @@ export function moveWalker(world:WalkWorld,from:WalkPoint,dx:number,dz:number,bo
  return p;
 }
 export function walkDelta(yaw:number,forward:number,right:number,seconds:number){const norm=Math.max(1,Math.hypot(forward,right)),step=1.4*Math.max(0,Math.min(.05,seconds))/norm;return {x:(-Math.sin(yaw)*forward-Math.cos(yaw)*right)*step,z:(Math.cos(yaw)*forward-Math.sin(yaw)*right)*step};}
+
+function polygonsTouch(a:Point[],b:Point[]){
+ if(a.some(p=>inside(p,b))||b.some(p=>inside(p,a)))return true;
+ const cross=(a:Point,b:Point,p:Point)=>(b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x);
+ for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
+  const p=a[i],q=a[(i+1)%a.length],r=b[j],s=b[(j+1)%b.length];
+  if(Math.max(p.x,q.x)<Math.min(r.x,s.x)||Math.max(r.x,s.x)<Math.min(p.x,q.x)||Math.max(p.y,q.y)<Math.min(r.y,s.y)||Math.max(r.y,s.y)<Math.min(p.y,q.y))continue;
+  if(cross(p,q,r)*cross(p,q,s)<=0&&cross(r,s,p)*cross(r,s,q)<=0)return true;
+ }
+ return false;
+}

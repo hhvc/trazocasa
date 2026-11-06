@@ -117,3 +117,12 @@ test('climbing bends knees and raises arms without exceeding the standing head c
  for(const phase of [0,.1,.3,.5,.8,1]){actor.pose(0,false,false,false,phase);actor.root.updateMatrixWorld(true);const box=new Box3().setFromObject(actor.root);assert.ok(box.min.y>=-.00001);assert.ok(box.max.y<=1.70001);}
  actor.dispose();finishes.dispose();
 });
+
+test('temporary car transforms update instances, outlines, picking and restore without mutating the project',()=>{
+ const car=item('smallCar'),b=project([car]),before=JSON.stringify(b),s=scene(b),selection={floorId:b.floors[0].id,elementId:car.id};
+ const original=s.selectable.map(mesh=>Array.from(mesh.instanceMatrix.array));
+ s.move(selection,{...car,x:8,y:3,rotation:90},0);s.group.updateMatrixWorld(true);
+ const bounds=new Box3().setFromObject(s.group);assert.ok(bounds.min.x>5);assert.ok(bounds.max.x<11);
+ const ray=new Raycaster(new Vector3(8,10,3),new Vector3(0,-1,0));assert.deepEqual(selectionFromIntersection(ray.intersectObjects(s.selectable,false)[0]),selection);
+ s.move(selection,car,0);s.selectable.forEach((mesh,i)=>assert.deepEqual(Array.from(mesh.instanceMatrix.array),original[i]));assert.equal(JSON.stringify(b),before);dispose(s.group);s.disposeTextures();
+});
