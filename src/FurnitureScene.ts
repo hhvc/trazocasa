@@ -1,5 +1,5 @@
-import {vehicleWheelRadius,vehicleWheelWidth} from './vehicle';
-import type {VehicleWheels} from './vehicle';
+import {vehicleDoorHinge,vehicleWheelRadius,vehicleWheelWidth} from './vehicle';
+import type {VehicleDoor,VehicleWheels} from './vehicle';
 import * as THREE from 'three';
 import {furnitureParts} from './furniture3d';
 import type {FurniturePart} from './furniture3d';
@@ -27,6 +27,14 @@ export function wheelPartMatrix(part:FurniturePart,item:Furniture,wheels:Vehicle
   .multiply(new THREE.Matrix4().makeTranslation(center[0]*item.width,r+.01*h,center[2]*item.depth))
   .multiply(new THREE.Matrix4().makeRotationY(front?-wheels.steer:0)).multiply(new THREE.Matrix4().makeRotationX(wheels.roll))
   .multiply(new THREE.Matrix4().compose(new THREE.Vector3(offset,0,0),new THREE.Quaternion().setFromEuler(new THREE.Euler(...(part.rotation??[0,0,0]))),new THREE.Vector3(scale[0],scale[1],scale[2])));
+}
+/** Rotate the complete panel around its metric hinge, without stretching resized doors. */
+export function doorPartMatrix(part:FurniturePart,item:Furniture,door?:VehicleDoor){
+ if(!part.door||part.door.side!==door?.side||!door.angle)return furniturePartMatrix(part);
+ const h=furnitureHeight(item),x=part.door.side*vehicleDoorHinge.x*item.width,z=vehicleDoorHinge.z*item.depth;
+ return new THREE.Matrix4().makeScale(1/item.width,1/h,1/item.depth)
+  .multiply(new THREE.Matrix4().makeTranslation(x,0,z)).multiply(new THREE.Matrix4().makeRotationY(part.door.side*door.angle))
+  .multiply(new THREE.Matrix4().makeTranslation(-x,0,-z)).multiply(new THREE.Matrix4().makeScale(item.width,h,item.depth)).multiply(furniturePartMatrix(part));
 }
 export function unitGeometry(shape:FurniturePart['shape']):THREE.BufferGeometry{
  switch(shape){
@@ -65,9 +73,9 @@ export function addFurnitureScene(group:THREE.Group,model:BuildingVolumes,finish
   }
  }
  if(outlines.length){const geometry=outlineGeometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(outlines,3));group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:'#637166',transparent:true,opacity:.35,depthWrite:false})));}
- return {selectable,move:(selection:ModelSelection,item:Furniture,level:number,wheels:VehicleWheels={roll:0,steer:0})=>{
+ return {selectable,move:(selection:ModelSelection,item:Furniture,level:number,wheels:VehicleWheels={roll:0,steer:0},door?:VehicleDoor)=>{
   const key=modelSelectionKey(selection),root=furnitureMatrix(item,level);let batchIndex=0;
-  for(const {entries} of batches.values()){const mesh=selectable[batchIndex++];let changed=false;entries.forEach((entry,i)=>{if(entry.key!==key)return;entry.matrix.multiplyMatrices(root,entry.part.wheel?wheelPartMatrix(entry.part,item,wheels):entry.local);mesh.setMatrixAt(i,entry.matrix);changed=true;});if(changed){mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingBox();mesh.computeBoundingSphere();}}
+  for(const {entries} of batches.values()){const mesh=selectable[batchIndex++];let changed=false;entries.forEach((entry,i)=>{if(entry.key!==key)return;entry.matrix.multiplyMatrices(root,entry.part.wheel?wheelPartMatrix(entry.part,item,wheels):entry.part.door?doorPartMatrix(entry.part,item,door):entry.local);mesh.setMatrixAt(i,entry.matrix);changed=true;});if(changed){mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingBox();mesh.computeBoundingSphere();}}
   if(outlineGeometry){const positions=outlineGeometry.getAttribute('position');for(const ref of outlineRefs)if(ref.entry.key===key){const p=ref.local.clone().applyMatrix4(ref.entry.matrix);positions.setXYZ(ref.offset,p.x,p.y,p.z);}positions.needsUpdate=true;outlineGeometry.computeBoundingBox();outlineGeometry.computeBoundingSphere();}
  },disposeTextures:()=>finishes.dispose(),setSelected:(selection:ModelSelection|null)=>{
   const key=modelSelectionKey(selection),highlight=new THREE.Color('#c18a50');

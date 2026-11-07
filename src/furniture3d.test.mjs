@@ -18,9 +18,9 @@ const {furnitureParts}=await import(partsUrl);
 const volumesUrl=await moduleUrl('./model3d.ts',{'./model':modelUrl});
 const {buildingVolumes}=await import(volumesUrl);
 const appearanceUrl=await moduleUrl('./appearance.ts'),finishesUrl=await moduleUrl('./finishMaterials.ts',{'three':import.meta.resolve('three')});
-const vehicleUrl=await moduleUrl('./vehicle.ts'),{driverSeat}=await import(vehicleUrl);
+const vehicleUrl=await moduleUrl('./vehicle.ts'),{driverSeat,vehicleDoorClear}=await import(vehicleUrl);
 const sceneUrl=await moduleUrl('./FurnitureScene.ts',{'./vehicle':vehicleUrl,'three':import.meta.resolve('three'),'./furniture3d':partsUrl,'./furnitureHeights':heightsUrl,'./model3d':volumesUrl,'./appearance':appearanceUrl,'./finishMaterials':finishesUrl});
-const {addFurnitureScene,furnitureMatrix,wheelPartMatrix,unitGeometry,selectionFromIntersection}=await import(sceneUrl);
+const {addFurnitureScene,furnitureMatrix,doorPartMatrix,wheelPartMatrix,unitGeometry,selectionFromIntersection}=await import(sceneUrl);
 const options={scope:'all',slabs:true,roofs:true};
 const item=(kind='bed',extra={})=>({id:'item',...furnitureCatalog.find(i=>i.kind===kind),x:0,y:0,rotation:0,...extra});
 const project=(items)=>buildingFromPlan(validatePlan({...emptyPlan(),furniture:items}));
@@ -139,7 +139,7 @@ test('seated posture rests pelvis on cushion, keeps feet on floor and restores s
 });
 
 test('compact cabin has transparent windows isolated from opaque materials and fits a seated driver',()=>{
- const car=item('smallCar'),s=scene(project([car])),glass=s.selectable.filter(m=>m.material.transparent);assert.equal(glass.length,1);assert.equal(glass[0].count,4);assert.equal(glass[0].material.depthWrite,false);assert.ok(glass[0].material.opacity>0&&glass[0].material.opacity<.4);
+ const car=item('smallCar'),s=scene(project([car])),glass=s.selectable.filter(m=>m.material.transparent);assert.equal(glass.length,1);assert.equal(glass[0].count,8);assert.equal(glass[0].material.depthWrite,false);assert.ok(glass[0].material.opacity>0&&glass[0].material.opacity<.4);
  assert.ok(s.selectable.filter(m=>m!==glass[0]).every(m=>m.material.opacity===1&&m.material.depthWrite));
  const finishes=createFinishLibrary(),p=item('person'),actor=createWalkingPerson(p,finishes),seat=driverSeat(car,p);actor.pose(0,false,false,false,0,seat.seatHeight);actor.root.position.set(seat.x,seat.floor,seat.z);actor.root.rotation.y=Math.PI;actor.root.updateMatrixWorld(true);const box=new Box3().setFromObject(actor.root);
  assert.ok(box.max.y<.96*1.45);close(box.min.y,seat.floor);assert.ok(box.min.x>-.315*car.width&&box.max.x<.315*car.width);assert.ok(box.min.z>-.19*car.depth&&box.max.z<.315*car.depth);
@@ -164,4 +164,38 @@ test('only front wheels steer, all spokes roll, and moving batches restore matri
  s.move(key,{...car,x:2,y:3,rotation:45},0,{steer:.5,roll:1});s.group.updateMatrixWorld(true);
  s.selectable.forEach((mesh,n)=>mesh.userData.selections.forEach((p,i)=>{if(p.elementId==='other')assert.deepEqual(Array.from(mesh.instanceMatrix.array.slice(i*16,(i+1)*16)),matrices[n].slice(i*16,(i+1)*16));}));
  s.move(key,car,0);s.selectable.forEach((m,i)=>assert.deepEqual(Array.from(m.instanceMatrix.array),matrices[i]));assert.deepEqual(Array.from(outline.geometry.getAttribute('position').array),original);assert.deepEqual(s.group.children.map(m=>[m.geometry,m.material]),resources);assert.equal(JSON.stringify(b),before);dispose(s.group);s.disposeTextures();
+});
+
+test('door panels, windows and handles share a rigid metric hinge, including resized cars',()=>{
+ const parts=furnitureParts('smallCar'),doors=parts.filter(p=>p.door);assert.equal(doors.length,10);assert.equal(doors.filter(p=>p.opacity).length,2);
+ for(const car of [item('smallCar'),item('smallCar',{width:1,depth:6,height:2.5,rotation:37})])for(const side of [-1,1])for(const p of doors){
+  const root=furnitureMatrix(car,0),closed=root.clone().multiply(doorPartMatrix(p,car)),open=root.clone().multiply(doorPartMatrix(p,car,{side,angle:.95}));
+  if(p.door.side!==side)assert.deepEqual(open.elements,closed.elements);else{assert.notDeepEqual(open.elements,closed.elements);for(const i of [0,4,8])close(Math.hypot(...open.elements.slice(i,i+3)),Math.hypot(...closed.elements.slice(i,i+3)));}
+  assert.deepEqual(doorPartMatrix(p,car,{side,angle:0}).elements,doorPartMatrix(p,car).elements);
+ }
+ const car=item('smallCar'),b=project([car,item('smallCar',{id:'other',x:8})]),s=scene(b),key={floorId:b.floors[0].id,elementId:car.id},matrices=s.selectable.map(m=>Array.from(m.instanceMatrix.array)),outline=s.group.children.find(m=>m.isLineSegments),original=Array.from(outline.geometry.getAttribute('position').array);
+ s.move(key,car,0,{roll:0,steer:0},{side:-1,angle:.95});assert.notDeepEqual(Array.from(outline.geometry.getAttribute('position').array),original);assert.ok(s.selectable.some((m,i)=>Array.from(m.instanceMatrix.array).some((v,j)=>v!==matrices[i][j])));
+ s.selectable.forEach((m,i)=>m.userData.selections.forEach((selection,n)=>{if(selection.elementId==='other')assert.deepEqual(Array.from(m.instanceMatrix.array).slice(n*16,n*16+16),matrices[i].slice(n*16,n*16+16));}));
+ s.move(key,car,0);s.selectable.forEach((m,i)=>assert.deepEqual(Array.from(m.instanceMatrix.array),matrices[i]));assert.deepEqual(Array.from(outline.geometry.getAttribute('position').array),original);dispose(s.group);
+});
+test('entry pose blends continuously between the standing and seated figure without allocating meshes',()=>{
+ const p=item('person'),finishes=createFinishLibrary(),actor=createWalkingPerson(p,finishes),seat=driverSeat(item('smallCar'),p),resources=[];actor.root.traverse(o=>{if(o.isMesh)resources.push(o.geometry,o.material);});
+ let previous=Infinity;
+ for(const blend of [0,.2,.4,.6,.8,1]){actor.pose(0,false,false,false,0,seat.seatHeight,blend);actor.root.updateMatrixWorld(true);const bounds=new Box3().setFromObject(actor.root);assert.ok(bounds.max.y<=previous+1e-6);previous=bounds.max.y;}
+ actor.pose(0,false);actor.root.updateMatrixWorld(true);const standing=new Box3().setFromObject(actor.root);actor.pose(0,false,false,false,0,seat.seatHeight,0);actor.root.updateMatrixWorld(true);const start=new Box3().setFromObject(actor.root);close(start.max.y,standing.max.y);close(start.min.y,standing.min.y);
+ const after=[];actor.root.traverse(o=>{if(o.isMesh)after.push(o.geometry,o.material);});assert.deepEqual(after,resources);actor.dispose();finishes.dispose();
+});
+
+test('door clearance envelopes contain the entire panel, glass and frame at every sweep sample',()=>{
+ const geometry=unitGeometry('box'),v=new Vector3();
+ for(const car of [item('smallCar'),item('smallCar',{width:10,depth:2,height:3}),item('smallCar',{width:1,depth:15,height:1.5})])for(const side of [-1,1]){
+  const checks=[],state={item:car,key:'car',position:{x:0,z:0},yaw:0};vehicleDoorClear({vehicleClear:(...args)=>{checks.push(args);return true;}},state,side);
+  checks.forEach(([,center,yaw,width,depth],i)=>{
+   for(const part of furnitureParts('smallCar').filter(p=>p.door?.side===side)){
+    const matrix=furnitureMatrix(car,0).multiply(doorPartMatrix(part,car,{side,angle:i*.95/24})),pos=geometry.getAttribute('position');
+    for(let n=0;n<pos.count;n++){v.fromBufferAttribute(pos,n).applyMatrix4(matrix);const x=v.x-center.x,z=v.z-center.z;assert.ok(Math.abs(x*Math.cos(yaw)+z*Math.sin(yaw))<=width/2+1e-6);assert.ok(Math.abs(-x*Math.sin(yaw)+z*Math.cos(yaw))<=depth/2+1e-6);}
+   }
+  });
+ }
+ geometry.dispose();
 });

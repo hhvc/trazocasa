@@ -1,7 +1,7 @@
 import {stairStepCount} from './stairGeometry';
 import type {Furniture3DKind} from './furnitureHeights';
 export type Triple=[number,number,number];
-export type FurniturePart={shape:'box'|'cylinder'|'sphere'|'ring';position:Triple;scale:Triple;rotation?:Triple;color:string;opacity?:number;wheel?:{center:Triple;front:boolean;component:'tire'|'hub'|'spoke'}};
+export type FurniturePart={shape:'box'|'cylinder'|'sphere'|'ring';position:Triple;scale:Triple;rotation?:Triple;color:string;opacity?:number;door?:{side:-1|1};wheel?:{center:Triple;front:boolean;component:'tire'|'hub'|'spoke'}};
 const wood='#bda789',cloth='#b6c5b7',light='#eeeade',white='#f1f0e8',metal='#74857e',dark='#45554e',glass='#9fbdb9',leaf='#94ad7b',soil='#82725c';
 /** X/Z in [-.5,.5], Y in [0,1]. Front faces +Z, matching the 2D glyphs. */
 export function furnitureParts(kind:Furniture3DKind,height=3):FurniturePart[]{
@@ -53,12 +53,24 @@ export function furnitureParts(kind:Furniture3DKind,height=3):FurniturePart[]{
  case 'smallCar':{
   // A hollow cabin leaves room for the driver; front is -Z for vehicles.
   box(0,.08,0,.82,.04,.96,cloth);
-  for(const x of [-.38,.38])box(x,.3,0,.06,.4,.96,cloth);
+  for(const side of [-1,1] as const){
+   const x=side*.38;
+   box(x,.1,0,.06,.04,.96,cloth);
+   box(x,.31,-.33,.06,.38,.3,cloth);box(x,.31,.32,.06,.38,.32,cloth);
+   box(x,.31,-.01,.06,.38,.34,cloth);parts.at(-1)!.door={side};
+   box(side*.413,.44,.11,.012,.025,.07,metal);parts.at(-1)!.door={side};
+  }
   box(0,.32,-.34,.82,.32,.28,cloth);box(0,.55,-.34,.8,.18,.28,light);
   box(0,.32,.4,.82,.32,.16,cloth);box(0,.52,.4,.8,.08,.16,light);
   for(const x of [-.135,.16]){box(x,.265,.1,.29,.04,.14,dark);box(x,.42,.18,.29,.33,.035,dark);}
   box(0,.53,-.19,.62,.05,.06,dark);
-  for(const x of [-.32,.32]){box(x,.75,.04,.01,.42,.55,glass);parts.at(-1)!.opacity=.2;}
+  for(const side of [-1,1] as const){
+   box(side*.32,.75,-.01,.01,.42,.34,glass);parts.at(-1)!.opacity=.2;parts.at(-1)!.door={side};
+   box(side*.32,.75,.2375,.01,.42,.155,glass);parts.at(-1)!.opacity=.2;
+   box(side*.32,.75,-.2075,.01,.42,.055,glass);parts.at(-1)!.opacity=.2;
+   box(side*.337,.75,.16,.026,.44,.015,cloth);parts.at(-1)!.door={side};
+   box(side*.337,.96,-.01,.026,.025,.34,cloth);parts.at(-1)!.door={side};
+  }
   for(const z of [-.235,.315]){box(0,.75,z,.63,.42,.01,glass);parts.at(-1)!.opacity=.2;}
   box(0,.98,.04,.68,.04,.56,light);
   for(const x of [-.337,.337])for(const z of [-.235,.315])box(x,.75,z,.026,.44,.025,cloth);

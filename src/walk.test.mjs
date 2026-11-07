@@ -11,7 +11,7 @@ const climbUrl=await moduleUrl('./climb.ts'),{findClimbAction,climbMotion,contai
 const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./climb':climbUrl,'./furnitureHeights':heightsUrl,'./stairGeometry':await moduleUrl('./stairGeometry.ts')}),{createWalkWorld,moveWalker,walkDelta}=await import(physicsUrl);
 const motionUrl=await moduleUrl('./walkMotion.ts',{'./climb':climbUrl,'./walkPhysics':physicsUrl});
 const {advanceWalk,initialMotion,toggleCrouch,jump,verticalStep,bodyHeight}=await import(motionUrl);
-const vehicleUrl=await moduleUrl('./vehicle.ts'),{driverSeat,vehicleWheelRadius,vehicleCandidate,vehicleEntryReason,advanceVehicle,vehicleExit,vehicleItem}=await import(vehicleUrl);
+const vehicleUrl=await moduleUrl('./vehicle.ts'),{vehicleAccessPlan,vehicleAccessFrame,vehicleAccessDuration,vehicleDoorClear,vehicleDoorStage,vehicleLocalPoint,driverSeat,vehicleWheelRadius,vehicleCandidate,vehicleEntryReason,advanceVehicle,vehicleExit,vehicleItem}=await import(vehicleUrl);
 const seatingUrl=await moduleUrl('./seating.ts',{'./furnitureHeights':heightsUrl}),{selectedSeat,seatExit}=await import(seatingUrl);
 const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'./seating':seatingUrl,'./vehicle':vehicleUrl,'./climb':climbUrl,'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
 const person=(extra={})=>({id:'person',kind:'person',x:3,y:1,width:.6,depth:.4,rotation:180,...extra});
@@ -65,10 +65,10 @@ test('collision construction and temporary motion do not change the saved plan',
 function target(){const events=new Map();return {events,addEventListener(name,fn){const set=events.get(name)??new Set();set.add(fn);events.set(name,set);},removeEventListener(name,fn){events.get(name)?.delete(fn);},fire(name,props={}){const e={preventDefault(){this.prevented=true;},...props};for(const fn of events.get(name)??[])fn(e);return e;},count(){return [...events.values()].reduce((n,s)=>n+s.size,0);}};}
 function harness(obstacles=[],useDefaultClock=false,overrideWorld,onVehicle){
  const win=target(),doc={...target(),defaultView:win},canvas={...target(),ownerDocument:doc,style:{cursor:'default'},focus(){},setPointerCapture(){},hasPointerCapture(){return false;},releasePointerCapture(){}};
- let callback,id=0;const clock={request(cb){callback=cb;return ++id;},cancel(){callback=undefined;}};
+ let callback,id=0,simulated=0,offset=0,lastTick=0;const clock={request(cb){callback=cb;return ++id;},cancel(){callback=undefined;}};
  const avatar={root:new Group(),poses:[],pose(...args){this.poses.push(args);}},reports=[];
  const w=overrideWorld??world(project({},person({x:0,y:0,rotation:0}))),controller=createWalkController(canvas,w,avatar,obstacles,()=>{},p=>reports.push(p),useDefaultClock?undefined:clock,onVehicle);
- return {win,doc,canvas,avatar,reports,controller,tick(t){const next=callback;callback=undefined;next?.(t);},get queued(){return !!callback;}};
+ return {win,doc,canvas,avatar,reports,controller,tick(t){lastTick=t;simulated=t+offset;const next=callback;callback=undefined;next?.(simulated);},finishAccess(){for(let i=0;i<45&&reports.at(-1).vehicle?.transition;i++){const next=callback;callback=undefined;next?.(simulated+=50);}offset=simulated-lastTick;assert.ok(!reports.at(-1).vehicle?.transition);},get queued(){return !!callback;}};
 }
 test('keyboard walking, reset, camera toggle and animation preserve the original spawn',()=>{
  const h=harness();h.controller.setMode('first');h.tick(0);h.canvas.fire('keydown',{code:'KeyW'});h.tick(50);h.tick(100);close(h.controller.camera.position.z,.14);assert.ok(h.avatar.poses.at(-1)[1]);
@@ -318,14 +318,14 @@ test('car exits choose an open side and refuse both blocked doors or a moving ve
 test('E enters, keyboard drives and brakes, focus loss stops, exit uses moved collision geometry, reset restores',()=>{
  const b=carProject(),before=JSON.stringify(b),w=world(b),changes=[],h=harness([],false,w,c=>changes.push(c));
  h.controller.selectTarget({key:carIn(w).key,name:'Auto chico',kind:'smallCar'});assert.ok(h.reports.at(-1).vehicle.canEnter);
- h.canvas.fire('keydown',{code:'KeyE'});assert.ok(h.reports.at(-1).vehicle.active);assert.equal(h.avatar.root.visible,true);
+ h.canvas.fire('keydown',{code:'KeyE'});h.finishAccess();assert.ok(h.reports.at(-1).vehicle.active);assert.equal(h.avatar.root.visible,true);
  h.tick(0);h.canvas.fire('keydown',{code:'KeyW'});for(let i=1;i<=40;i++)h.tick(i*50);assert.ok(changes.at(-1).item.y<-4);assert.ok(h.reports.at(-1).vehicle.speed>0);
- h.controller.act('climb');assert.ok(h.reports.at(-1).vehicle.active);h.canvas.fire('keydown',{code:'Space'});for(let i=41;i<=55;i++)h.tick(i*50);close(h.reports.at(-1).vehicle.speed,0);
- h.win.fire('blur');h.controller.act('climb');assert.ok(!h.reports.at(-1).vehicle?.active);assert.ok(h.avatar.root.visible);assert.ok(h.avatar.root.position.z<-4);close(h.avatar.root.position.y,0);
+ h.controller.act('climb');h.finishAccess();assert.ok(h.reports.at(-1).vehicle.active);h.canvas.fire('keydown',{code:'Space'});for(let i=41;i<=55;i++)h.tick(i*50);close(h.reports.at(-1).vehicle.speed,0);
+ h.win.fire('blur');h.controller.act('climb');h.finishAccess();assert.ok(!h.reports.at(-1).vehicle?.active);assert.ok(h.avatar.root.visible);assert.ok(h.avatar.root.position.z<-4);close(h.avatar.root.position.y,0);
  h.controller.reset();assert.deepEqual(changes.at(-1).item,carItem());close(h.avatar.root.position.x,-1.45);assert.equal(JSON.stringify(b),before);h.controller.dispose();assert.equal(h.queued,false);
 });
 test('touch driving stops on blur and disposal restores the saved vehicle',()=>{
- const w=world(carProject()),changes=[],h=harness([],false,w,c=>changes.push(c));h.controller.selectTarget({key:carIn(w).key,name:'Auto',kind:'smallCar'});h.controller.act('climb');h.tick(0);h.controller.input('forward',true);h.controller.input('right',true);for(let i=1;i<=20;i++)h.tick(i*50);
+ const w=world(carProject()),changes=[],h=harness([],false,w,c=>changes.push(c));h.controller.selectTarget({key:carIn(w).key,name:'Auto',kind:'smallCar'});h.controller.act('climb');h.finishAccess();h.tick(0);h.controller.input('forward',true);h.controller.input('right',true);for(let i=1;i<=20;i++)h.tick(i*50);
  assert.ok(changes.at(-1).item.rotation>0);h.win.fire('blur');close(h.reports.at(-1).vehicle.speed,0);const stop=JSON.stringify(changes.at(-1));h.tick(1050);h.tick(1100);assert.equal(JSON.stringify(changes.at(-1)),stop);h.controller.dispose();assert.deepEqual(changes.at(-1).item,carItem());assert.equal(h.canvas.count()+h.win.count()+h.doc.count(),0);
 });
 
@@ -400,20 +400,49 @@ test('wheel rolling follows signed travel, stops against walls and steering retu
 });
 test('visible driver follows rotated car, survives blur, stands on exit and retains wheel phase on reentry',()=>{
  const rotation=90,a=rotation*Math.PI/180,p=person({x:-1.45*Math.cos(a),y:-1.45*Math.sin(a)}),b=project({furniture:[p,carItem({rotation})]},p),before=JSON.stringify(b),w=world(b),changes=[],h=harness([],false,w,c=>changes.push(c));
- h.controller.selectTarget({key:carIn(w).key,name:'Auto chico',kind:'smallCar'});h.controller.act('climb');assert.ok(h.avatar.root.visible);close(h.avatar.root.rotation.y,Math.PI-a);assert.ok(h.avatar.poses.at(-1)[5]>0);
+ h.controller.selectTarget({key:carIn(w).key,name:'Auto chico',kind:'smallCar'});h.controller.act('climb');h.finishAccess();assert.ok(h.avatar.root.visible);close(h.avatar.root.rotation.y,Math.PI-a);assert.ok(h.avatar.poses.at(-1)[5]>0);
  h.tick(0);h.controller.input('forward',true);h.controller.input('right',true);for(let i=1;i<=20;i++)h.tick(i*50);
  const moved=changes.at(-1),seat=driverSeat(moved.item,w.item),yaw=moved.item.rotation*Math.PI/180;close(h.avatar.root.position.x,moved.item.x+seat.x*Math.cos(yaw)-seat.z*Math.sin(yaw));close(h.avatar.root.position.z,moved.item.y+seat.x*Math.sin(yaw)+seat.z*Math.cos(yaw));close(h.avatar.root.position.y,seat.floor);
  h.avatar.root.updateMatrixWorld(true);const forward=h.avatar.root.getWorldDirection(new Vector3());close(forward.x,Math.sin(yaw));close(forward.z,-Math.cos(yaw));
- h.win.fire('blur');assert.ok(h.avatar.root.visible);assert.ok(h.avatar.poses.at(-1)[5]>0);close(changes.at(-1).wheels.steer,0);const roll=changes.at(-1).wheels.roll;h.controller.act('climb');assert.equal(h.avatar.poses.at(-1)[5],undefined);close(h.avatar.root.position.y,0);assert.ok(!h.reports.at(-1).vehicle?.active);
- h.controller.act('climb');assert.ok(h.reports.at(-1).vehicle.active);close(changes.at(-1).wheels.roll,roll);h.controller.reset();assert.deepEqual(changes.at(-1).wheels,{roll:0,steer:0});assert.equal(h.avatar.poses.at(-1)[5],undefined);assert.equal(JSON.stringify(b),before);h.controller.dispose();
+ h.win.fire('blur');assert.ok(h.avatar.root.visible);assert.ok(h.avatar.poses.at(-1)[5]>0);close(changes.at(-1).wheels.steer,0);const roll=changes.at(-1).wheels.roll;h.controller.act('climb');h.finishAccess();assert.equal(h.avatar.poses.at(-1)[5],undefined);close(h.avatar.root.position.y,0);assert.ok(!h.reports.at(-1).vehicle?.active);
+ h.controller.act('climb');h.finishAccess();assert.ok(h.reports.at(-1).vehicle.active);close(changes.at(-1).wheels.roll,roll);h.controller.reset();assert.deepEqual(changes.at(-1).wheels,{roll:0,steer:0});assert.equal(h.avatar.poses.at(-1)[5],undefined);assert.equal(JSON.stringify(b),before);h.controller.dispose();
 });
 test('stationary steering updates the rendered wheels and resets on blur and disposal',()=>{
- const w=world(carProject()),changes=[],h=harness([],false,w,c=>changes.push(c));h.controller.selectTarget({key:carIn(w).key,name:'Auto chico',kind:'smallCar'});h.controller.act('climb');h.tick(0);h.controller.input('left',true);for(let i=1;i<=4;i++)h.tick(i*50);
+ const w=world(carProject()),changes=[],h=harness([],false,w,c=>changes.push(c));h.controller.selectTarget({key:carIn(w).key,name:'Auto chico',kind:'smallCar'});h.controller.act('climb');h.finishAccess();h.tick(0);h.controller.input('left',true);for(let i=1;i<=4;i++)h.tick(i*50);
  close(changes.at(-1).wheels.steer,-.5);close(changes.at(-1).wheels.roll,0);close(changes.at(-1).item.x,0);close(changes.at(-1).item.y,0);
  h.win.fire('blur');close(changes.at(-1).wheels.steer,0);const count=changes.length;h.tick(250);h.tick(300);assert.equal(changes.length,count);h.controller.dispose();assert.deepEqual(changes.at(-1).wheels,{roll:0,steer:0});assert.equal(h.queued,false);
 });
 test('vehicle camera ignores the active car but still retracts against other instances in its batch',()=>{
  const w=world(carProject()),key={floorId:w.model[0].id,elementId:'car'},geometry=new BoxGeometry(6,4,.2),material=new MeshBasicMaterial(),batch=new InstancedMesh(geometry,material,2);
  batch.userData.selections=[key,{...key,elementId:'other'}];batch.setMatrixAt(0,new Matrix4().makeTranslation(0,1,.7));batch.setMatrixAt(1,new Matrix4().makeTranslation(0,1,3));batch.computeBoundingSphere();batch.updateMatrixWorld();
- const h=harness([batch],false,w);h.controller.selectTarget({key:carIn(w).key,name:'Auto chico',kind:'smallCar'});h.controller.act('climb');assert.ok(h.controller.camera.position.z>2&&h.controller.camera.position.z<3);assert.ok(h.avatar.root.visible);h.controller.dispose();geometry.dispose();material.dispose();batch.dispose();
+ const h=harness([batch],false,w);h.controller.selectTarget({key:carIn(w).key,name:'Auto chico',kind:'smallCar'});h.controller.act('climb');h.finishAccess();assert.ok(h.controller.camera.position.z>2&&h.controller.camera.position.z<3);assert.ok(h.avatar.root.visible);h.controller.dispose();geometry.dispose();material.dispose();batch.dispose();
+});
+
+test('doors reserve their swept area and exits choose the side with clearance',()=>{
+ const barrier={...wall,a:{x:-1.6,y:-1},b:{x:-1.6,y:.3},thickness:.05},w=world(carProject({walls:[barrier]})),car=carIn(w);
+ assert.ok(w.vehicleClear(car.key,car.position,car.yaw,1.7,3.8,1.45));assert.equal(vehicleDoorClear(w,car,-1),false);assert.ok(vehicleDoorClear(w,car,1));assert.match(vehicleEntryReason(w,{...initialMotion(w),position:{x:-1.2,z:0}},car),/abrir la puerta/);assert.ok(vehicleExit(w,car).x>0);
+ const both=world(carProject({walls:[barrier,{...barrier,id:'right',a:{x:1.6,y:-1},b:{x:1.6,y:.3}}]}));assert.equal(vehicleExit(both,carIn(both)),null);
+ const obstacle={id:'obstacle',kind:'nightstand',width:.2,depth:.2,height:.5,x:-1.3,y:.95,rotation:0},path=world(carProject({furniture:[person({x:-1.45,y:0}),carItem(),obstacle]}));assert.equal(vehicleAccessPlan(path,carIn(path),path.start,0),null);
+});
+test('entry and exit paths are reversible, stand clear of the door swing and follow rotated cars',()=>{
+ for(const angle of [0,Math.PI/2,2.1])for(const side of [-1,1]){
+  const w=world(carProject()),car={...carIn(w),yaw:angle,position:{x:5,z:7}},outside=vehicleLocalPoint(car,side*1.45,0),plan=vehicleAccessPlan({...w,vehicleClear:()=>true,isClear:()=>true,navigationSupport:()=>0},car,outside,.6);assert.ok(plan);assert.equal(plan.side,side);
+  const first=vehicleAccessFrame(car,plan,true,0),last=vehicleAccessFrame(car,plan,true,2);assert.deepEqual(first.position,outside);close(first.door.angle,0);close(last.door.angle,0);close(first.seated,0);close(last.seated,1);
+  const seat=vehicleLocalPoint(car,plan.seat.x,plan.seat.z);close(last.position.x,seat.x);close(last.position.z,seat.z);
+  for(let i=0;i<=20;i++){const t=i/10,a=vehicleAccessFrame(car,plan,true,t),b=vehicleAccessFrame(car,plan,false,2-t);close(a.position.x,b.position.x);close(a.position.z,b.position.z);close(a.door.angle,b.door.angle);if(t>=.76&&t<=1.6)close(a.door.angle,.95);}
+ }
+});
+test('access animation opens before transfer, locks inputs, closes before driving and leaves no held controls',()=>{
+ const b=carProject(),before=JSON.stringify(b),w=world(b),changes=[],h=harness([],false,w,c=>changes.push(c));h.controller.setMode('first');h.controller.selectTarget({key:carIn(w).key,name:'Auto',kind:'smallCar'});h.controller.act('climb');assert.equal(h.reports.at(-1).vehicle.transition,'enter');assert.ok(h.avatar.root.visible);
+ h.tick(0);h.controller.input('forward',true);h.canvas.fire('keydown',{code:'KeyD'});h.controller.act('climb');h.controller.act('jump');h.controller.selectTarget(null);
+ for(let i=1;i<=15;i++)h.tick(i*50);assert.ok(changes.at(-1).door.angle>.9);close(changes.at(-1).item.x,0);close(changes.at(-1).wheels.roll,0);assert.equal(h.avatar.poses.at(-1)[5],undefined);
+ for(let i=16;i<=25;i++)h.tick(i*50);assert.ok(h.avatar.poses.at(-1)[6]>0);assert.ok(h.avatar.root.position.x>-1.2);h.finishAccess();assert.ok(h.reports.at(-1).vehicle.active);assert.equal(changes.at(-1).door,undefined);h.tick(1300);close(h.reports.at(-1).vehicle.speed,0);
+ h.controller.act('climb');assert.equal(h.reports.at(-1).vehicle.transition,'exit');h.finishAccess();assert.ok(!h.reports.at(-1).vehicle?.active);assert.equal(h.avatar.poses.at(-1)[5],undefined);assert.equal(changes.at(-1).door,undefined);assert.equal(JSON.stringify(b),before);h.controller.dispose();
+});
+test('blur cancels entry to the original position and exit to the driver seat; reset and disposal close doors',()=>{
+ const w=world(carProject()),changes=[],h=harness([],false,w,c=>changes.push(c)),select=()=>h.controller.selectTarget({key:carIn(w).key,name:'Auto',kind:'smallCar'});
+ select();h.controller.act('climb');h.tick(0);for(let i=1;i<=25;i++)h.tick(i*50);assert.ok(changes.at(-1).door.angle>0);h.win.fire('blur');assert.ok(!h.reports.at(-1).vehicle?.transition);assert.ok(!h.reports.at(-1).vehicle?.active);close(h.avatar.root.position.x,w.start.x);close(h.avatar.root.position.z,w.start.z);assert.equal(changes.at(-1).door,undefined);
+ h.controller.act('climb');h.finishAccess();h.controller.act('climb');for(let i=26;i<=40;i++)h.tick(i*50);h.doc.fire('visibilitychange');assert.ok(h.reports.at(-1).vehicle.active);assert.equal(h.reports.at(-1).vehicle.transition,undefined);assert.ok(h.avatar.poses.at(-1)[5]>0);assert.equal(changes.at(-1).door,undefined);
+ h.controller.act('climb');h.tick(2050);h.controller.reset();assert.deepEqual(changes.at(-1).item,carItem());assert.equal(changes.at(-1).door,undefined);close(h.avatar.root.position.x,w.start.x);
+ select();h.controller.act('climb');h.tick(2100);h.controller.dispose();assert.equal(changes.at(-1).door,undefined);assert.deepEqual(changes.at(-1).wheels,{roll:0,steer:0});assert.equal(h.queued,false);assert.equal(h.canvas.count()+h.win.count()+h.doc.count(),0);
 });

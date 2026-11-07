@@ -247,7 +247,7 @@ La visibilidad de la imagen también se cambia desde el botón Ocultar referenci
 
 ## Vehículos y mesa de luz
 
-Muebles incluye Auto chico (1,70 × 3,80 m), Auto mediano (1,80 × 4,50 m), Camioneta tipo pickup (2,00 × 5,30 m) y Mesa de luz (0,50 × 0,40 m). Las medidas son editables y admiten giro, duplicación, grupos, alineación y exportación como el resto del catálogo. Los vehículos representan carrocerías orientativas, sin espacio de circulación ni apertura de puertas; conviene ajustar las dimensiones al modelo real y contemplar los espejos.
+Muebles incluye Auto chico (1,70 × 3,80 m), Auto mediano (1,80 × 4,50 m), Camioneta tipo pickup (2,00 × 5,30 m) y Mesa de luz (0,50 × 0,40 m). Las medidas son editables y admiten giro, duplicación, grupos, alineación y exportación como el resto del catálogo. Los vehículos representan carrocerías orientativas, sin cálculo del espacio de circulación (el auto chico abre las puertas durante el recorrido); conviene ajustar las dimensiones al modelo real y contemplar los espejos.
 
 Se conserva el formato actual; editores anteriores no reconocen estos cuatro nuevos tipos de mobiliario.
 
@@ -426,7 +426,7 @@ Tocá un espacio vacío o **×** para quitar la selección y volver a las sugere
 
 ### Manejar el auto chico
 
-En **Controlar persona**, acercarse de pie a uno de los laterales de un **auto chico**, tocarlo y usar **Entrar al auto / E**. El auto debe estar en la primera planta, sin elevación, con espacio libre y sin huecos debajo. La entrada comprueba que no haya una pared entre la persona y la puerta.
+En **Controlar persona**, acercarse de pie a uno de los laterales de un **auto chico**, tocarlo y usar **Entrar al auto / E**. El auto debe estar en la primera planta, sin elevación, con espacio libre y sin huecos debajo. La entrada comprueba la trayectoria de la persona y el espacio que barre la puerta al abrirse. Si un lateral está bloqueado, indica que hay que acercarse por otro lado.
 
 - **W / ↑:** acelerar hacia delante (hasta 4 m/s, aproximadamente 14 km/h).
 - **S / ↓:** frenar y, una vez detenido, retroceder (hasta 2 m/s).
@@ -438,7 +438,7 @@ La cámara sigue al vehículo desde atrás y a la izquierda para mostrar el cond
 
 El auto conserva su posición temporal al salir, para poder caminar alrededor y volver a entrar. **Volver al inicio**, **Terminar recorrido**, Escape o cerrar el visor restauran los autos y la persona. Las posiciones recorridas no cambian el plano, el historial ni los archivos guardados.
 
-Esta primera versión comprueba la huella completa del vehículo contra muros, ventanas, muebles, techos bajos y huecos. Usa volúmenes conservadores: no atraviesa escaleras ni permite subir rampas, circular por plantas superiores o conducir autos medianos/camionetas. Las cuatro ruedas giran según la distancia recorrida y en sentido inverso al retroceder. Las delanteras acompañan A/D incluso con el auto detenido y vuelven al centro al soltar la dirección, salir o perder el foco. La fase de giro se conserva al volver a entrar y se restaura al terminar o reiniciar el recorrido. Las ruedas mantienen su forma circular y quedan dentro de la huella usada para las colisiones, incluso al girar. No simula suspensión, apertura de puertas ni una transición animada al entrar; al salir se recupera la postura de pie. Los recortes en techos se consideran sólidos para el espacio libre del auto.
+Esta primera versión comprueba la huella completa del vehículo contra muros, ventanas, muebles, techos bajos y huecos. Usa volúmenes conservadores: no atraviesa escaleras ni permite subir rampas, circular por plantas superiores o conducir autos medianos/camionetas. Las cuatro ruedas giran según la distancia recorrida y en sentido inverso al retroceder. Las delanteras acompañan A/D incluso con el auto detenido y vuelven al centro al soltar la dirección, salir o perder el foco. La fase de giro se conserva al volver a entrar y se restaura al terminar o reiniciar el recorrido. Las ruedas mantienen su forma circular y quedan dentro de la huella usada para las colisiones, incluso al girar. La entrada y la salida duran dos segundos: la persona se coloca detrás de la puerta, esta se abre, la figura pasa al asiento o sale y la puerta se cierra. La carrocería, el vidrio y el marco de cada puerta giran juntos, también con vehículos redimensionados. Mientras dura la acción no se puede mover el auto ni repetir la interacción. Al perder el foco se cancela la entrada volviendo al punto de partida, o la salida volviendo al asiento, siempre con las puertas cerradas. Reiniciar o terminar restaura el auto y la persona guardados. Solo el auto chico tiene puertas articuladas; no simula suspensión. Los recortes en techos se consideran sólidos para el espacio libre del auto.
 
 ### Sentarse y levantarse
 
