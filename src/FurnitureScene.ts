@@ -1,3 +1,5 @@
+import {vehicleWheelRadius,vehicleWheelWidth} from './vehicle';
+import type {VehicleWheels} from './vehicle';
 import * as THREE from 'three';
 import {furnitureParts} from './furniture3d';
 import type {FurniturePart} from './furniture3d';
@@ -15,6 +17,17 @@ export function furnitureMatrix(item:Furniture,level:number){
 export function furniturePartMatrix(part:FurniturePart){
  return new THREE.Matrix4().compose(new THREE.Vector3(...part.position),new THREE.Quaternion().setFromEuler(new THREE.Euler(...(part.rotation??[0,0,0]))),new THREE.Vector3(...part.scale));
 }
+/** Joint rotations happen in metres, so resized tires remain round rather than shearing. */
+export function wheelPartMatrix(part:FurniturePart,item:Furniture,wheels:VehicleWheels={roll:0,steer:0}){
+ if(!part.wheel)return furniturePartMatrix(part);
+ const {center,front,component}=part.wheel,h=furnitureHeight(item),r=vehicleWheelRadius(item),width=vehicleWheelWidth(item),side=Math.sign(center[0]);
+ const offset=component==='tire'?0:side*width*(component==='hub'?.51:.537);
+ const scale=component==='tire'?[2*r,width,2*r]:component==='hub'?[1.2*r,width*.04,1.2*r]:[width*.014,1.3*r,.16*r];
+ return new THREE.Matrix4().makeScale(1/item.width,1/h,1/item.depth)
+  .multiply(new THREE.Matrix4().makeTranslation(center[0]*item.width,r+.01*h,center[2]*item.depth))
+  .multiply(new THREE.Matrix4().makeRotationY(front?-wheels.steer:0)).multiply(new THREE.Matrix4().makeRotationX(wheels.roll))
+  .multiply(new THREE.Matrix4().compose(new THREE.Vector3(offset,0,0),new THREE.Quaternion().setFromEuler(new THREE.Euler(...(part.rotation??[0,0,0]))),new THREE.Vector3(scale[0],scale[1],scale[2])));
+}
 export function unitGeometry(shape:FurniturePart['shape']):THREE.BufferGeometry{
  switch(shape){
   case 'box':return new THREE.BoxGeometry(1,1,1);
@@ -25,8 +38,8 @@ export function unitGeometry(shape:FurniturePart['shape']):THREE.BufferGeometry{
 }
 /** Shared geometry/material batches keep draw calls bounded even with hundreds of items. */
 export function addFurnitureScene(group:THREE.Group,model:BuildingVolumes,finishes:FinishLibrary=createFinishLibrary()){
- type Entry={local:THREE.Matrix4;matrix:THREE.Matrix4;color:THREE.Color;selection:ModelSelection;key:string};
- const batches=new Map<string,{shape:FurniturePart['shape'];finish:FinishKind;entries:Entry[]}>();
+ type Entry={part:FurniturePart;local:THREE.Matrix4;matrix:THREE.Matrix4;color:THREE.Color;selection:ModelSelection;key:string};
+ const batches=new Map<string,{shape:FurniturePart['shape'];finish:FinishKind;opacity:number;entries:Entry[]}>();
  const cache=new Map<string,FurniturePart[]>();
  for(const floor of model)for(const item of floor.furniture){
   if(!isFurniture3D(item.kind))continue;
@@ -34,14 +47,14 @@ export function addFurnitureScene(group:THREE.Group,model:BuildingVolumes,finish
   const parts=cache.get(cacheKey)??furnitureParts(item.kind,furnitureHeight(item));cache.set(cacheKey,parts);
   const root=furnitureMatrix(item,floor.elevation),selection={floorId:floor.id,elementId:item.id},key=modelSelectionKey(selection);
   const primary=furnitureFinishColors(item.kind);
-  for(const part of parts){const appearance=primary.includes(part.color)?item.appearance:undefined,finish=appearance?.finish??'paint',batchKey=part.shape+'-'+finish;
-   const batch=batches.get(batchKey)??{shape:part.shape,finish,entries:[]};batch.entries.push({local:furniturePartMatrix(part),matrix:root.clone().multiply(furniturePartMatrix(part)),color:new THREE.Color(appearance?.color??part.color),selection,key});batches.set(batchKey,batch);
+  for(const part of parts){const appearance=primary.includes(part.color)?item.appearance:undefined,finish=appearance?.finish??'paint',opacity=part.opacity??1,batchKey=part.shape+'-'+finish+'-'+opacity;
+   const local=wheelPartMatrix(part,item),batch=batches.get(batchKey)??{shape:part.shape,finish,opacity,entries:[]};batch.entries.push({part,local,matrix:root.clone().multiply(local),color:new THREE.Color(appearance?.color??part.color),selection,key});batches.set(batchKey,batch);
   }
  }
  const selectable:THREE.InstancedMesh[]=[],outlines:number[]=[],outlineRefs:{entry:Entry;local:THREE.Vector3;offset:number}[]=[];let outlineGeometry:THREE.BufferGeometry|undefined;
- const materials=new Map<FinishKind,THREE.MeshStandardMaterial>(),geometries=new Map<FurniturePart['shape'],THREE.BufferGeometry>();
- for(const {shape,finish,entries} of batches.values()){
-  const material=materials.get(finish)??finishMaterial(finishes,{color:'#ffffff',finish},'#ffffff',true);materials.set(finish,material);
+ const materials=new Map<string,THREE.MeshStandardMaterial>(),geometries=new Map<FurniturePart['shape'],THREE.BufferGeometry>();
+ for(const {shape,finish,opacity,entries} of batches.values()){
+  const materialKey=finish+'-'+opacity,material=materials.get(materialKey)??finishMaterial(finishes,{color:'#ffffff',finish},'#ffffff',true);material.transparent=opacity<1;material.opacity=opacity;material.depthWrite=opacity===1;materials.set(materialKey,material);
   const geometry=geometries.get(shape)??unitGeometry(shape);geometries.set(shape,geometry);const mesh=new THREE.InstancedMesh(geometry,material,entries.length);
   mesh.userData.selections=entries.map(e=>e.selection);
   entries.forEach((e,i)=>{mesh.setMatrixAt(i,e.matrix);mesh.setColorAt(i,e.color);});
@@ -52,10 +65,10 @@ export function addFurnitureScene(group:THREE.Group,model:BuildingVolumes,finish
   }
  }
  if(outlines.length){const geometry=outlineGeometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(outlines,3));group.add(new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:'#637166',transparent:true,opacity:.35,depthWrite:false})));}
- return {selectable,move:(selection:ModelSelection,item:Furniture,level:number)=>{
+ return {selectable,move:(selection:ModelSelection,item:Furniture,level:number,wheels:VehicleWheels={roll:0,steer:0})=>{
   const key=modelSelectionKey(selection),root=furnitureMatrix(item,level);let batchIndex=0;
-  for(const {entries} of batches.values()){const mesh=selectable[batchIndex++];let changed=false;entries.forEach((entry,i)=>{if(entry.key!==key)return;entry.matrix.multiplyMatrices(root,entry.local);mesh.setMatrixAt(i,entry.matrix);changed=true;});if(changed){mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingBox();mesh.computeBoundingSphere();}}
-  if(outlineGeometry){const positions=outlineGeometry.getAttribute('position');for(const ref of outlineRefs)if(ref.entry.key===key){const p=ref.local.clone().applyMatrix4(ref.entry.matrix);positions.setXYZ(ref.offset,p.x,p.y,p.z);}positions.needsUpdate=true;outlineGeometry.computeBoundingSphere();}
+  for(const {entries} of batches.values()){const mesh=selectable[batchIndex++];let changed=false;entries.forEach((entry,i)=>{if(entry.key!==key)return;entry.matrix.multiplyMatrices(root,entry.part.wheel?wheelPartMatrix(entry.part,item,wheels):entry.local);mesh.setMatrixAt(i,entry.matrix);changed=true;});if(changed){mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingBox();mesh.computeBoundingSphere();}}
+  if(outlineGeometry){const positions=outlineGeometry.getAttribute('position');for(const ref of outlineRefs)if(ref.entry.key===key){const p=ref.local.clone().applyMatrix4(ref.entry.matrix);positions.setXYZ(ref.offset,p.x,p.y,p.z);}positions.needsUpdate=true;outlineGeometry.computeBoundingBox();outlineGeometry.computeBoundingSphere();}
  },disposeTextures:()=>finishes.dispose(),setSelected:(selection:ModelSelection|null)=>{
   const key=modelSelectionKey(selection),highlight=new THREE.Color('#c18a50');
   let batchIndex=0;for(const {entries} of batches.values()){const mesh=selectable[batchIndex++];entries.forEach((e,i)=>mesh.setColorAt(i,e.key===key?e.color.clone().lerp(highlight,.65):e.color));if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}

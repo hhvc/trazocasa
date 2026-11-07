@@ -1,7 +1,7 @@
 import {stairStepCount} from './stairGeometry';
 import type {Furniture3DKind} from './furnitureHeights';
 export type Triple=[number,number,number];
-export type FurniturePart={shape:'box'|'cylinder'|'sphere'|'ring';position:Triple;scale:Triple;rotation?:Triple;color:string};
+export type FurniturePart={shape:'box'|'cylinder'|'sphere'|'ring';position:Triple;scale:Triple;rotation?:Triple;color:string;opacity?:number;wheel?:{center:Triple;front:boolean;component:'tire'|'hub'|'spoke'}};
 const wood='#bda789',cloth='#b6c5b7',light='#eeeade',white='#f1f0e8',metal='#74857e',dark='#45554e',glass='#9fbdb9',leaf='#94ad7b',soil='#82725c';
 /** X/Z in [-.5,.5], Y in [0,1]. Front faces +Z, matching the 2D glyphs. */
 export function furnitureParts(kind:Furniture3DKind,height=3):FurniturePart[]{
@@ -50,10 +50,30 @@ export function furnitureParts(kind:Furniture3DKind,height=3):FurniturePart[]{
   const toilet=kind==='toilet';ball(0,toilet?.22:.34,.06,.53,toilet?.44:.68,.63,white);basin(0,toilet?.54:.91,.13,.9,.7);
   if(toilet){box(0,.69,-.34,.92,.58,.28,white);box(0,.985,-.34,.96,.03,.3,light);box(.24,.9,-.192,.1,.025,.015,metal);}else{box(0,.89,-.32,.8,.16,.32,white);cyl(0,.975,-.3,.06,.05,.07,metal);}break;
  }
- case 'smallCar':case 'mediumCar':case 'pickup':{
-  const pickup=kind==='pickup',compact=kind==='smallCar';box(0,.32,0,.82,.32,.96,cloth);box(0,.55,-.32,.8,.18,.3,light);
+ case 'smallCar':{
+  // A hollow cabin leaves room for the driver; front is -Z for vehicles.
+  box(0,.08,0,.82,.04,.96,cloth);
+  for(const x of [-.38,.38])box(x,.3,0,.06,.4,.96,cloth);
+  box(0,.32,-.34,.82,.32,.28,cloth);box(0,.55,-.34,.8,.18,.28,light);
+  box(0,.32,.4,.82,.32,.16,cloth);box(0,.52,.4,.8,.08,.16,light);
+  for(const x of [-.135,.16]){box(x,.265,.1,.29,.04,.14,dark);box(x,.42,.18,.29,.33,.035,dark);}
+  box(0,.53,-.19,.62,.05,.06,dark);
+  for(const x of [-.32,.32]){box(x,.75,.04,.01,.42,.55,glass);parts.at(-1)!.opacity=.2;}
+  for(const z of [-.235,.315]){box(0,.75,z,.63,.42,.01,glass);parts.at(-1)!.opacity=.2;}
+  box(0,.98,.04,.68,.04,.56,light);
+  for(const x of [-.337,.337])for(const z of [-.235,.315])box(x,.75,z,.026,.44,.025,cloth);
+  for(const x of [-.36,.36])for(const z of [-.3,.29]){
+   const center:Triple=[x,.22,z],front=z<0;
+   part('cylinder',center,[.42,.11,.18],dark,[0,0,Math.PI/2]);parts.at(-1)!.wheel={center,front,component:'tire'};
+   part('cylinder',[x+Math.sign(x)*.05,.22,z],[.25,.008,.1],metal,[0,0,Math.PI/2]);parts.at(-1)!.wheel={center,front,component:'hub'};
+   for(const a of [0,Math.PI/3,2*Math.PI/3]){part('box',[x+Math.sign(x)*.053,.22,z],[.004,.27,.02],light,[a,0,0]);parts.at(-1)!.wheel={center,front,component:'spoke'};}
+  }
+  for(const x of [-.26,.26]){box(x,.48,-.485,.18,.075,.03,white);box(x,.46,.485,.17,.065,.03,'#b98571');}break;
+ }
+ case 'mediumCar':case 'pickup':{
+  const pickup=kind==='pickup';box(0,.32,0,.82,.32,.96,cloth);box(0,.55,-.32,.8,.18,.3,light);
   for(const x of [-.445,.445])for(const z of [-.3,.29])part('cylinder',[x,.22,z],[.42,.11,.18],dark,[0,0,Math.PI/2]);
-  const cz=pickup?-.08:compact?.04:.07,cd=pickup?.33:compact?.56:.49;box(0,.75,cz,.65,.42,cd,glass);box(0,.98,cz,.68,.04,cd,light);for(const x of [-.337,.337])box(x,.75,cz,.028,.44,.035,cloth);
+  const cz=pickup?-.08:.07,cd=pickup?.33:.49;box(0,.75,cz,.65,.42,cd,glass);box(0,.98,cz,.68,.04,cd,light);for(const x of [-.337,.337])box(x,.75,cz,.028,.44,.035,cloth);
   if(pickup){box(0,.49,.32,.7,.02,.3,dark);for(const x of [-.365,.365])box(x,.59,.32,.09,.2,.32,cloth);box(0,.59,.46,.68,.2,.04,cloth);}
   for(const x of [-.26,.26]){box(x,.48,-.485,.18,.075,.03,white);box(x,.46,.485,.17,.065,.03,'#b98571');}break;
  }

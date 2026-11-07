@@ -15,7 +15,7 @@ const {withAppearance,targetAppearance,furnitureFinishColors}=await import(appea
 const {finishPixels,createFinishLibrary,finishMaterial,finishUV}=await import(finishesUrl);
 const volumesUrl=await moduleUrl('./model3d.ts',{'./model':modelUrl}),{buildingVolumes}=await import(volumesUrl);
 const heightsUrl=await moduleUrl('./furnitureHeights.ts'),partsUrl=await moduleUrl('./furniture3d.ts',{'./stairGeometry':await moduleUrl('./stairGeometry.ts')});
-const sceneUrl=await moduleUrl('./FurnitureScene.ts',{'three':three,'./model3d':volumesUrl,'./furnitureHeights':heightsUrl,'./furniture3d':partsUrl,'./appearance':appearanceUrl,'./finishMaterials':finishesUrl});
+const sceneUrl=await moduleUrl('./FurnitureScene.ts',{'./vehicle':await moduleUrl('./vehicle.ts'),'three':three,'./model3d':volumesUrl,'./furnitureHeights':heightsUrl,'./furniture3d':partsUrl,'./appearance':appearanceUrl,'./finishMaterials':finishesUrl});
 const {addFurnitureScene}=await import(sceneUrl);
 const geometryUrl=await moduleUrl('./plateGeometry.ts',{'three':three}),{plateGeometry,roofGeometry,wallSolidGeometry}=await import(geometryUrl);
 const paint={color:'#8eac9b',finish:'paint'},wood={color:'#bda789',finish:'wood'},tile={color:'#e3dfd3',finish:'tile'},concrete={color:'#bcbdb6',finish:'concrete'};

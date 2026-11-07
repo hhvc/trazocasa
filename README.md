@@ -434,11 +434,11 @@ En **Controlar persona**, acercarse de pie a uno de los laterales de un **auto c
 - **Espacio / Frenar:** frenar. Soltar el acelerador también reduce la velocidad.
 - **E / Salir del auto:** salir cuando esté detenido, buscando espacio y apoyo junto a las puertas. Si ambos lados están bloqueados, mover el auto a un lugar despejado.
 
-La cámara sigue al vehículo desde atrás. Los controles inferiores se adaptan para conducir; no se puede saltar, agacharse ni cambiar a primera persona mientras se maneja. Perder el foco detiene el auto y libera los controles.
+La cámara sigue al vehículo desde atrás y a la izquierda para mostrar el conductor y las ruedas. La persona permanece visible, sentada y orientada hacia delante dentro del habitáculo; las ventanas del auto chico son transparentes. La entrada comprueba que las dimensiones de la figura quepan en el vehículo, sin cambiar su tamaño. Los controles inferiores se adaptan para conducir; no se puede saltar, agacharse ni cambiar a primera persona mientras se maneja. Perder el foco detiene el auto y libera los controles.
 
 El auto conserva su posición temporal al salir, para poder caminar alrededor y volver a entrar. **Volver al inicio**, **Terminar recorrido**, Escape o cerrar el visor restauran los autos y la persona. Las posiciones recorridas no cambian el plano, el historial ni los archivos guardados.
 
-Esta primera versión comprueba la huella completa del vehículo contra muros, ventanas, muebles, techos bajos y huecos. Usa volúmenes conservadores: no atraviesa escaleras ni permite subir rampas, circular por plantas superiores o conducir autos medianos/camionetas. No simula suspensión, ruedas, apertura de puertas ni la animación de sentarse; la persona se oculta mientras conduce. Los recortes en techos se consideran sólidos para el espacio libre del auto.
+Esta primera versión comprueba la huella completa del vehículo contra muros, ventanas, muebles, techos bajos y huecos. Usa volúmenes conservadores: no atraviesa escaleras ni permite subir rampas, circular por plantas superiores o conducir autos medianos/camionetas. Las cuatro ruedas giran según la distancia recorrida y en sentido inverso al retroceder. Las delanteras acompañan A/D incluso con el auto detenido y vuelven al centro al soltar la dirección, salir o perder el foco. La fase de giro se conserva al volver a entrar y se restaura al terminar o reiniciar el recorrido. Las ruedas mantienen su forma circular y quedan dentro de la huella usada para las colisiones, incluso al girar. No simula suspensión, apertura de puertas ni una transición animada al entrar; al salir se recupera la postura de pie. Los recortes en techos se consideran sólidos para el espacio libre del auto.
 
 ### Sentarse y levantarse
 

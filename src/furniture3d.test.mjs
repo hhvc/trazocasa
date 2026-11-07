@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
-import {Group,Matrix4,Vector3,Box3,Color,Raycaster} from 'three';
+import {Group,Matrix4,Vector3,Box3,Color,Raycaster,Mesh,MeshBasicMaterial} from 'three';
 const urls=new Map();
 async function moduleUrl(file,dependencies={}){
  let source=ts.transpileModule(await readFile(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
@@ -18,8 +18,9 @@ const {furnitureParts}=await import(partsUrl);
 const volumesUrl=await moduleUrl('./model3d.ts',{'./model':modelUrl});
 const {buildingVolumes}=await import(volumesUrl);
 const appearanceUrl=await moduleUrl('./appearance.ts'),finishesUrl=await moduleUrl('./finishMaterials.ts',{'three':import.meta.resolve('three')});
-const sceneUrl=await moduleUrl('./FurnitureScene.ts',{'three':import.meta.resolve('three'),'./furniture3d':partsUrl,'./furnitureHeights':heightsUrl,'./model3d':volumesUrl,'./appearance':appearanceUrl,'./finishMaterials':finishesUrl});
-const {addFurnitureScene,furnitureMatrix,selectionFromIntersection}=await import(sceneUrl);
+const vehicleUrl=await moduleUrl('./vehicle.ts'),{driverSeat}=await import(vehicleUrl);
+const sceneUrl=await moduleUrl('./FurnitureScene.ts',{'./vehicle':vehicleUrl,'three':import.meta.resolve('three'),'./furniture3d':partsUrl,'./furnitureHeights':heightsUrl,'./model3d':volumesUrl,'./appearance':appearanceUrl,'./finishMaterials':finishesUrl});
+const {addFurnitureScene,furnitureMatrix,wheelPartMatrix,unitGeometry,selectionFromIntersection}=await import(sceneUrl);
 const options={scope:'all',slabs:true,roofs:true};
 const item=(kind='bed',extra={})=>({id:'item',...furnitureCatalog.find(i=>i.kind===kind),x:0,y:0,rotation:0,...extra});
 const project=(items)=>buildingFromPlan(validatePlan({...emptyPlan(),furniture:items}));
@@ -84,7 +85,7 @@ test('raycasting and highlight distinguish repeated IDs on separate floors, then
 test('500 items share a bounded number of render batches',()=>{
  const supported=furnitureCatalog.filter(f=>isFurniture3D(f.kind));
  const s=scene(project(Array.from({length:500},(_,i)=>item(supported[i%supported.length].kind,{id:'f'+i,x:(i%25)*6,y:Math.floor(i/25)*6}))));
- assert.ok(s.selectable.length<=4);assert.ok(s.group.children.length<=5);assert.equal(new Set(s.selectable.map(m=>m.material)).size,1);
+ assert.ok(s.selectable.length<=5);assert.ok(s.group.children.length<=6);assert.equal(new Set(s.selectable.map(m=>m.material)).size,2);
  assert.ok(s.selectable.reduce((n,m)=>n+m.count,0)>500);dispose(s.group);
 });
 
@@ -135,4 +136,32 @@ test('seated posture rests pelvis on cushion, keeps feet on floor and restores s
   for(const hip of legs){const knee=hip.children.find(o=>o.isGroup),foot=knee.children.find(o=>o.isGroup);close(new Box3().setFromObject(foot).min.y,0);assert.ok(knee.getWorldPosition(new Vector3()).z>hip.position.z);}
  }
  actor.pose(0,false);actor.root.updateMatrixWorld(true);const standing=new Box3().setFromObject(actor.root);close(standing.min.y,0);close(standing.max.y,1.7);actor.root.traverse(o=>{if(o.geometry)assert.ok(resources.has(o.geometry));if(o.material)assert.ok(resources.has(o.material));});actor.dispose();finishes.dispose();
+});
+
+test('compact cabin has transparent windows isolated from opaque materials and fits a seated driver',()=>{
+ const car=item('smallCar'),s=scene(project([car])),glass=s.selectable.filter(m=>m.material.transparent);assert.equal(glass.length,1);assert.equal(glass[0].count,4);assert.equal(glass[0].material.depthWrite,false);assert.ok(glass[0].material.opacity>0&&glass[0].material.opacity<.4);
+ assert.ok(s.selectable.filter(m=>m!==glass[0]).every(m=>m.material.opacity===1&&m.material.depthWrite));
+ const finishes=createFinishLibrary(),p=item('person'),actor=createWalkingPerson(p,finishes),seat=driverSeat(car,p);actor.pose(0,false,false,false,0,seat.seatHeight);actor.root.position.set(seat.x,seat.floor,seat.z);actor.root.rotation.y=Math.PI;actor.root.updateMatrixWorld(true);const box=new Box3().setFromObject(actor.root);
+ assert.ok(box.max.y<.96*1.45);close(box.min.y,seat.floor);assert.ok(box.min.x>-.315*car.width&&box.max.x<.315*car.width);assert.ok(box.min.z>-.19*car.depth&&box.max.z<.315*car.depth);
+ actor.dispose();finishes.dispose();dispose(s.group);s.disposeTextures();
+});
+test('wheel joints stay round, within the car footprint and above ground across rotation and resizing',()=>{
+ const parts=furnitureParts('smallCar').filter(p=>p.wheel),geometry=unitGeometry('cylinder');
+ for(const car of [item('smallCar'),item('smallCar',{width:1,depth:2.2,height:.9}),item('smallCar',{width:10,depth:.2,height:3}),item('smallCar',{width:.2,depth:10,height:3})])for(const steer of [-.5,0,.5])for(const roll of [0,.7,2]){
+  for(const p of parts){const matrix=furnitureMatrix(car,0).multiply(wheelPartMatrix(p,car,{roll,steer})),g=p.shape==='cylinder'?geometry:unitGeometry(p.shape),mesh=new Mesh(g,new MeshBasicMaterial());mesh.matrixAutoUpdate=false;mesh.matrix.copy(matrix);mesh.updateMatrixWorld(true);const box=new Box3().setFromObject(mesh,true);
+   assert.ok(box.min.y>=-.00001);assert.ok(box.min.x>=-car.width/2-.00001&&box.max.x<=car.width/2+.00001);assert.ok(box.min.z>=-car.depth/2-.00001&&box.max.z<=car.depth/2+.00001);
+   if(p.wheel.component==='tire'){const e=matrix.elements;close(Math.hypot(e[0],e[1],e[2]),Math.hypot(e[8],e[9],e[10]));}
+   mesh.material.dispose();if(g!==geometry)g.dispose();
+  }
+ }
+ geometry.dispose();
+});
+test('only front wheels steer, all spokes roll, and moving batches restore matrices and outlines exactly',()=>{
+ const car=item('smallCar'),parts=furnitureParts('smallCar').filter(p=>p.wheel);
+ for(const p of parts){const base=wheelPartMatrix(p,car),steered=wheelPartMatrix(p,car,{steer:.5,roll:0});if(p.wheel.front)assert.notDeepEqual(steered.elements,base.elements);else assert.deepEqual(steered.elements,base.elements);if(p.wheel.component==='spoke')assert.notDeepEqual(wheelPartMatrix(p,car,{steer:0,roll:.7}).elements,base.elements);}
+ for(const p of parts.filter(p=>p.wheel.component==='spoke')){const tire=parts.find(t=>t.wheel.component==='tire'&&t.wheel.center===p.wheel.center),tm=furnitureMatrix(car,0).multiply(wheelPartMatrix(tire,car)),sm=furnitureMatrix(car,0).multiply(wheelPartMatrix(p,car));assert.ok(Math.abs(sm.elements[12]-tm.elements[12])>Math.hypot(tm.elements[4],tm.elements[5],tm.elements[6])/2,'Spokes must be visible outside the tire cap');}
+ const b=project([car,item('smallCar',{id:'other',x:8})]),before=JSON.stringify(b),s=scene(b),key={floorId:b.floors[0].id,elementId:car.id},matrices=s.selectable.map(m=>Array.from(m.instanceMatrix.array)),outline=s.group.children.find(m=>m.isLineSegments),original=Array.from(outline.geometry.getAttribute('position').array),resources=s.group.children.map(m=>[m.geometry,m.material]);
+ s.move(key,{...car,x:2,y:3,rotation:45},0,{steer:.5,roll:1});s.group.updateMatrixWorld(true);
+ s.selectable.forEach((mesh,n)=>mesh.userData.selections.forEach((p,i)=>{if(p.elementId==='other')assert.deepEqual(Array.from(mesh.instanceMatrix.array.slice(i*16,(i+1)*16)),matrices[n].slice(i*16,(i+1)*16));}));
+ s.move(key,car,0);s.selectable.forEach((m,i)=>assert.deepEqual(Array.from(m.instanceMatrix.array),matrices[i]));assert.deepEqual(Array.from(outline.geometry.getAttribute('position').array),original);assert.deepEqual(s.group.children.map(m=>[m.geometry,m.material]),resources);assert.equal(JSON.stringify(b),before);dispose(s.group);s.disposeTextures();
 });

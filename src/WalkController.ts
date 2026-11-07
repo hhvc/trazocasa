@@ -1,6 +1,6 @@
 import {isSeatKind,selectedSeat,seatExit} from './seating';
 import type {SeatPlace} from './seating';
-import {advanceVehicle,vehicleCandidate,vehicleEntryReason,vehicleItem,vehicleExit} from './vehicle';
+import {driverSeat,advanceVehicle,vehicleCandidate,vehicleEntryReason,vehicleItem,vehicleExit} from './vehicle';
 import type {VehicleState,VehicleChange} from './vehicle';
 import {createWalkWorld} from './walkPhysics';
 import {findClimbAction,climbMotion,selectedClimb} from './climb';
@@ -27,13 +27,18 @@ export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,av
  let seated:SeatPlace|null=null,seatHint:SeatPlace|null=null,seatReason='';
  const originalWorld=world,changedVehicles=new Map<string,VehicleChange>();
  let driving:VehicleState|null=null,vehicleHint:VehicleState|null=null,vehicleReason='';
- function changeVehicle(car:VehicleState){const change={key:car.key,floorId:car.floorId,item:vehicleItem(car),level:world.groundLevel};changedVehicles.set(car.key,change);vehicleChanged(change);}
+ function changeVehicle(car:VehicleState){const change={key:car.key,floorId:car.floorId,item:vehicleItem(car),level:world.groundLevel,wheels:{roll:car.wheelRoll,steer:car.steerAngle}};changedVehicles.set(car.key,change);vehicleChanged(change);}
  function parkedWorld(){return createWalkWorld(originalWorld.model.map(f=>({...f,furniture:f.furniture.map(item=>changedVehicles.get(JSON.stringify([f.id,item.id]))?.item??item)})),originalWorld.selection);}
- function resetVehicles(){driving=null;for(const change of changedVehicles.values()){const original=vehicleCandidate(originalWorld,change.key);if(original)vehicleChanged({...change,item:original.item});}changedVehicles.clear();world=originalWorld;vehicleHint=null;vehicleReason='';}
+ function resetVehicles(){driving=null;for(const change of changedVehicles.values()){const original=vehicleCandidate(originalWorld,change.key);if(original)vehicleChanged({...change,item:original.item,wheels:{roll:0,steer:0}});}changedVehicles.clear();world=originalWorld;vehicleHint=null;vehicleReason='';}
  const cursor=canvas.style.cursor;canvas.style.cursor='grab';
  function cameraUpdate(){
-  if(driving){const car=driving,h=car.item.height??1.45;target.set(car.position.x,world.groundLevel+h+.3,car.position.z);direction.set(Math.sin(car.yaw),0,-Math.cos(car.yaw));desired.copy(target).addScaledVector(direction,-Math.max(4,car.item.depth*1.5));desired.y+=1.6;
-   const v=desired.clone().sub(target),length=v.length();ray.set(target,v.normalize());ray.far=length;const hit=ray.intersectObjects(obstacles,false)[0];camera.position.copy(target).addScaledVector(v,hit?Math.max(.05,hit.distance-.15):length);camera.lookAt(target);camera.updateMatrixWorld();avatar.root.visible=false;return;}
+  if(driving){const car=driving,h=car.item.height??1.45,seat=driverSeat(car.item,world.item)!;
+   target.set(car.position.x,world.groundLevel+h*.7,car.position.z);direction.set(Math.sin(car.yaw),0,-Math.cos(car.yaw));desired.copy(target).addScaledVector(direction,-Math.max(4,car.item.depth*1.35)).add(new Vector3(-Math.cos(car.yaw),0,-Math.sin(car.yaw)).multiplyScalar(car.item.width*.9));desired.y+=h*.35;
+   const v=desired.clone().sub(target),length=v.length();ray.set(target,v.normalize());ray.far=length;
+   // Ignore only this car's instances, retaining walls and other cars in the same batch.
+   const hit=ray.intersectObjects(obstacles,false).find(hit=>{const selected=hit.instanceId===undefined?hit.object.userData.selection:hit.object.userData.selections?.[hit.instanceId];return selected?.floorId!==car.floorId||selected?.elementId!==car.item.id;});
+   camera.position.copy(target).addScaledVector(v,hit?Math.max(.05,hit.distance-.15):length);camera.lookAt(target);camera.updateMatrixWorld();
+   avatar.root.position.set(car.position.x+seat.x*Math.cos(car.yaw)-seat.z*Math.sin(car.yaw),world.groundLevel+seat.floor,car.position.z+seat.x*Math.sin(car.yaw)+seat.z*Math.cos(car.yaw));avatar.root.rotation.y=Math.PI-car.yaw;avatar.root.visible=true;avatar.pose(0,false,false,false,0,seat.seatHeight);return;}
 
   direction.set(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
   target.set(motion.position.x,motion.feet+(seated?seated.height+world.height*.49:world.height*(motion.crouched?.63:.93)),motion.position.z);
@@ -65,7 +70,7 @@ export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,av
  function look(dx:number,dy:number){if(driving)return;if(!climb)yaw+=dx;pitch=MathUtils.clamp(pitch+dy,-1.15,.65);refreshHint(true);cameraUpdate();progress();render();}
  function stopDrag(){const d=drag;drag=null;if(d&&canvas.hasPointerCapture(d.id))canvas.releasePointerCapture(d.id);}
  function pause(){
-  const interrupted=!!climb||!!driving;if(driving)driving.speed=0;if(climb){motion={...climb.action.from,position:{...climb.action.from.position}};distance=climb.distance;climb=null;hintKey='';}
+  const interrupted=!!climb||!!driving;if(driving){driving.speed=0;driving.steerAngle=0;changeVehicle(driving);}if(climb){motion={...climb.action.from,position:{...climb.action.from.position}};distance=climb.distance;climb=null;hintKey='';}
   keyboard.clear();touch.clear();stopDrag();previous=undefined;pose();
   if(interrupted&&!closed){refreshHint(true);cameraUpdate();progress();render();}
  }
@@ -80,6 +85,7 @@ export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,av
    if(Math.abs(driving.speed)>.05){vehicleReason='Detenete para salir.';refreshHint(true);progress();return;}
    const nextWorld=parkedWorld(),exit=vehicleExit(nextWorld,driving);
    if(!exit){vehicleReason='No hay espacio junto a las puertas. Mové el auto a un lugar despejado.';refreshHint(true);progress();return;}
+   driving.steerAngle=0;changeVehicle(driving);
    motion={...initialMotion(nextWorld),position:exit,feet:nextWorld.groundLevel,navigation:nextWorld.groundLevel};yaw=driving.yaw+Math.PI;world=nextWorld;driving=null;vehicleReason='';keyboard.clear();touch.clear();hintKey='';refreshHint(true);pose();cameraUpdate();progress();render();return;
   }
   if(seated){
@@ -92,7 +98,7 @@ export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,av
   if(action==='climb'){
    refreshHint(true);
    if(seatHint){seated=seatHint;seatHint=null;seatReason='';motion={...motion,position:{...seated.position},feet:seated.base,navigation:seated.base,velocity:0,grounded:true,platform:undefined};yaw=seated.yaw;pitch=-.1;keyboard.clear();touch.clear();stopDrag();refreshHint(true);pose();cameraUpdate();progress();render();return;}
-   if(vehicleHint){driving={...vehicleHint,position:{...vehicleHint.position}};vehicleHint=null;vehicleReason='';keyboard.clear();touch.clear();stopDrag();changeVehicle(driving);refreshHint(true);cameraUpdate();progress();render();return;}
+   if(vehicleHint){driving={...vehicleHint,position:{...vehicleHint.position},wheelRoll:changedVehicles.get(vehicleHint.key)?.wheels.roll??0};vehicleHint=null;vehicleReason='';keyboard.clear();touch.clear();stopDrag();changeVehicle(driving);refreshHint(true);cameraUpdate();progress();render();return;}
    if(!hint)return;keyboard.clear();touch.clear();stopDrag();
    const dx=hint.to.position.x-hint.from.position.x,dz=hint.to.position.z-hint.from.position.z;yaw=Math.atan2(-dx,dz);
    climb={action:hint,elapsed:0,distance};motion=climbMotion(hint,0);hint=null;
@@ -114,7 +120,7 @@ export function createWalkController(canvas:HTMLCanvasElement,world:WalkWorld,av
   if(seated){frame=clock.request(tick);return;}
   const pressed=(action:WalkAction)=>touch.has(action)||(action==='brake'&&keyboard.has('Space'))||[...keyboard].some(k=>keys[k]===action);
   const f=Number(pressed('forward'))-Number(pressed('back')),r=Number(pressed('right'))-Number(pressed('left'));
-  if(driving){const result=advanceVehicle(world,driving,f,r,pressed('brake'),dt);driving=result.car;distance+=result.distance;if(result.distance>0){vehicleReason='';changeVehicle(driving);}cameraUpdate();refreshHint();progress(result.blocked);if(result.distance>0)render();frame=clock.request(tick);return;}
+  if(driving){const result=advanceVehicle(world,driving,f,r,pressed('brake'),dt),changed=result.distance>0||result.car.steerAngle!==driving.steerAngle;driving=result.car;distance+=result.distance;if(result.distance>0)vehicleReason='';if(changed)changeVehicle(driving);cameraUpdate();refreshHint();progress(result.blocked);if(changed)render();frame=clock.request(tick);return;}
   const delta=walkDelta(yaw,f,r,dt),speed=motion.crouched?.5:1,previousFeet=motion.feet;
   const result=advanceWalk(world,motion,delta.x*speed,delta.z*speed,dt);motion=result.motion;const travel=result.distance;distance+=travel;
   const blocked=!!(f||r)&&dt>0&&travel<Math.hypot(delta.x,delta.z)*speed*.25,moving=travel>.0001;
