@@ -2,18 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
-import {Group,BoxGeometry,Mesh,MeshBasicMaterial,Vector3,InstancedMesh,Matrix4} from 'three';
+import {Group,BoxGeometry,Mesh,MeshBasicMaterial,Vector3,InstancedMesh,Matrix4,Raycaster} from 'three';
 async function moduleUrl(file,deps={}){let source=ts.transpileModule(await readFile(new URL(file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;for(const [name,url] of Object.entries(deps))source=source.replaceAll(`'${name}'`,JSON.stringify(url));return `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;}
 const modelUrl=await moduleUrl('./model.ts'),heightsUrl=await moduleUrl('./furnitureHeights.ts');
 const {emptyPlan,validatePlan,validateBuilding,buildingFromPlan,addFloor}=await import(modelUrl);
 const volumesUrl=await moduleUrl('./model3d.ts',{'./model':modelUrl}),{buildingVolumes}=await import(volumesUrl);
 const climbUrl=await moduleUrl('./climb.ts'),{findClimbAction,climbMotion,containsClimbSurface,selectedClimb}=await import(climbUrl);
-const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./climb':climbUrl,'./furnitureHeights':heightsUrl,'./stairGeometry':await moduleUrl('./stairGeometry.ts')}),{createWalkWorld,moveWalker,walkDelta}=await import(physicsUrl);
+const doorsUrl=await moduleUrl('./doors.ts'),{modelDoors,doorLeaf,doorOpenAngle,selectedDoor,doorSweepReason}=await import(doorsUrl);
+const {addDoorScene}=await import(await moduleUrl('./DoorScene.ts',{'three':import.meta.resolve('three'),'./doors':doorsUrl}));
+const physicsUrl=await moduleUrl('./walkPhysics.ts',{'./doors':doorsUrl,'./climb':climbUrl,'./furnitureHeights':heightsUrl,'./stairGeometry':await moduleUrl('./stairGeometry.ts')}),{createWalkWorld,moveWalker,walkDelta}=await import(physicsUrl);
 const motionUrl=await moduleUrl('./walkMotion.ts',{'./climb':climbUrl,'./walkPhysics':physicsUrl});
 const {advanceWalk,initialMotion,toggleCrouch,jump,verticalStep,bodyHeight}=await import(motionUrl);
 const vehicleUrl=await moduleUrl('./vehicle.ts'),{vehicleAccessPlan,vehicleAccessFrame,vehicleAccessDuration,vehicleDoorClear,vehicleDoorStage,vehicleLocalPoint,driverSeat,vehicleWheelRadius,vehicleCandidate,vehicleEntryReason,advanceVehicle,vehicleExit,vehicleItem}=await import(vehicleUrl);
 const seatingUrl=await moduleUrl('./seating.ts',{'./furnitureHeights':heightsUrl}),{selectedSeat,seatExit}=await import(seatingUrl);
-const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'./seating':seatingUrl,'./vehicle':vehicleUrl,'./climb':climbUrl,'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
+const {createWalkController}=await import(await moduleUrl('./WalkController.ts',{'./doors':doorsUrl,'./seating':seatingUrl,'./vehicle':vehicleUrl,'./climb':climbUrl,'three':import.meta.resolve('three'),'./walkPhysics':physicsUrl,'./walkMotion':motionUrl}));
 const person=(extra={})=>({id:'person',kind:'person',x:3,y:1,width:.6,depth:.4,rotation:180,...extra});
 const wall={id:'wall',a:{x:0,y:0},b:{x:6,y:0},thickness:.1};
 const rectangle=(x,y,w,d)=>[{x,y},{x:x+w,y},{x:x+w,y:y+d},{x,y:y+d}];
@@ -23,7 +25,7 @@ function walk(w,from,dx,dz,n=40){let p={...from};for(let i=0;i<n;i++)p=moveWalke
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} != ${b}`);
 test('a person walks through a fitting door but stops at solid walls, low lintels and windows',()=>{
  const base={walls:[wall]},door={id:'door',wallId:'wall',kind:'door',t:.5,width:.9,height:2.1};
- const clear=world(project({...base,openings:[door]}));assert.ok(walk(clear,clear.start,0,-.05).z<-.9);
+ const clear=world(project({...base,openings:[door]}));clear.setDoorAngle(clear.doors[0].key,doorOpenAngle);assert.ok(walk(clear,clear.start,0,-.05).z<-.9);
  for(const openings of [[],[{...door,height:1.4}],[{...door,kind:'window',sill:0}]]){const w=world(project({...base,openings}));assert.ok(walk(w,w.start,0,-.05).z>=w.radius+.049,JSON.stringify(openings));}
  // A round body can enter partway into a narrow opening before touching its jambs.
  const narrow=world(project({...base,openings:[{...door,width:.4}]})),stop=walk(narrow,narrow.start,0,-.05),contact=.05+Math.sqrt(narrow.radius**2-.2**2);
@@ -63,11 +65,11 @@ test('collision construction and temporary motion do not change the saved plan',
  const b=project({walls:[wall]}),before=JSON.stringify(b),w=world(b);walk(w,w.start,.05,0);assert.equal(JSON.stringify(b),before);assert.throws(()=>createWalkWorld([], {floorId:'missing',elementId:'person'}));
 });
 function target(){const events=new Map();return {events,addEventListener(name,fn){const set=events.get(name)??new Set();set.add(fn);events.set(name,set);},removeEventListener(name,fn){events.get(name)?.delete(fn);},fire(name,props={}){const e={preventDefault(){this.prevented=true;},...props};for(const fn of events.get(name)??[])fn(e);return e;},count(){return [...events.values()].reduce((n,s)=>n+s.size,0);}};}
-function harness(obstacles=[],useDefaultClock=false,overrideWorld,onVehicle){
+function harness(obstacles=[],useDefaultClock=false,overrideWorld,onVehicle,onDoor){
  const win=target(),doc={...target(),defaultView:win},canvas={...target(),ownerDocument:doc,style:{cursor:'default'},focus(){},setPointerCapture(){},hasPointerCapture(){return false;},releasePointerCapture(){}};
  let callback,id=0,simulated=0,offset=0,lastTick=0;const clock={request(cb){callback=cb;return ++id;},cancel(){callback=undefined;}};
  const avatar={root:new Group(),poses:[],pose(...args){this.poses.push(args);}},reports=[];
- const w=overrideWorld??world(project({},person({x:0,y:0,rotation:0}))),controller=createWalkController(canvas,w,avatar,obstacles,()=>{},p=>reports.push(p),useDefaultClock?undefined:clock,onVehicle);
+ const w=overrideWorld??world(project({},person({x:0,y:0,rotation:0}))),controller=createWalkController(canvas,w,avatar,obstacles,()=>{},p=>reports.push(p),useDefaultClock?undefined:clock,onVehicle,onDoor);
  return {win,doc,canvas,avatar,reports,controller,tick(t){lastTick=t;simulated=t+offset;const next=callback;callback=undefined;next?.(simulated);},finishAccess(){for(let i=0;i<45&&reports.at(-1).vehicle?.transition;i++){const next=callback;callback=undefined;next?.(simulated+=50);}offset=simulated-lastTick;assert.ok(!reports.at(-1).vehicle?.transition);},get queued(){return !!callback;}};
 }
 test('keyboard walking, reset, camera toggle and animation preserve the original spawn',()=>{
@@ -96,7 +98,7 @@ test('browser frame methods retain their native receiver rather than the clock w
 });
 
 test('crouching fits under a low lintel, cannot stand beneath it, and keeps the plan unchanged',()=>{
- const b=project({walls:[wall],openings:[{id:'door',kind:'door',wallId:'wall',t:.5,width:.9,height:1.35}]}),before=JSON.stringify(b),w=world(b);
+ const b=project({walls:[wall],openings:[{id:'door',kind:'door',wallId:'wall',t:.5,width:.9,height:1.35}]}),before=JSON.stringify(b),w=world(b);w.setDoorAngle(w.doors[0].key,doorOpenAngle);
  let m=toggleCrouch(w,initialMotion(w));assert.ok(m.crouched);close(bodyHeight(w,m),1.19);
  for(let i=0;i<20;i++)m=advanceWalk(w,m,0,-.05,.05).motion;
  assert.ok(Math.abs(m.position.z)<.03);m=toggleCrouch(w,m);assert.ok(m.crouched&&m.standBlocked);
@@ -445,4 +447,55 @@ test('blur cancels entry to the original position and exit to the driver seat; r
  h.controller.act('climb');h.finishAccess();h.controller.act('climb');for(let i=26;i<=40;i++)h.tick(i*50);h.doc.fire('visibilitychange');assert.ok(h.reports.at(-1).vehicle.active);assert.equal(h.reports.at(-1).vehicle.transition,undefined);assert.ok(h.avatar.poses.at(-1)[5]>0);assert.equal(changes.at(-1).door,undefined);
  h.controller.act('climb');h.tick(2050);h.controller.reset();assert.deepEqual(changes.at(-1).item,carItem());assert.equal(changes.at(-1).door,undefined);close(h.avatar.root.position.x,w.start.x);
  select();h.controller.act('climb');h.tick(2100);h.controller.dispose();assert.equal(changes.at(-1).door,undefined);assert.deepEqual(changes.at(-1).wheels,{roll:0,steer:0});assert.equal(h.queued,false);assert.equal(h.canvas.count()+h.win.count()+h.doc.count(),0);
+});
+
+const houseOpening={id:'door',wallId:'wall',kind:'door',t:.5,width:.9,height:2.1};
+const houseWorld=(extra={})=>world(project({walls:[wall],openings:[houseOpening],...extra}));
+const doorTarget=w=>({key:w.doors[0].key,name:'Puerta',kind:'door'});
+test('house door hinges and swing directions follow all four 2D orientations on rotated upper floors',()=>{
+ for(const hinge of ['start','end'])for(const swing of ['negative','positive'])for(const angle of [0,Math.PI/2,.73]){
+  const rotated={...wall,a:{x:2,y:3},b:{x:2+6*Math.cos(angle),y:3+6*Math.sin(angle)}},b=addFloor(project({walls:[rotated],openings:[{...houseOpening,hinge,swing}]}),'Alta','copy'),before=JSON.stringify(b),model=buildingVolumes(b,{scope:'all',slabs:true,roofs:true}),doors=modelDoors(model);
+  assert.equal(doors.length,2);assert.notEqual(doors[0].key,doors[1].key);assert.equal(doors[0].elementId,doors[1].elementId);
+  for(const d of doors){const closed=doorLeaf(d,0),open=doorLeaf(d,doorOpenAngle),along=(d.hinge.x-rotated.a.x)*Math.cos(angle)+(d.hinge.z-rotated.a.y)*Math.sin(angle);close(along,hinge==='start'?2.58:3.42);close((open.position.x-d.hinge.x)*-Math.sin(angle)+(open.position.z-d.hinge.z)*Math.cos(angle),(swing==='positive'?1:-1)*d.width/2);close(Math.hypot(closed.position.x-d.hinge.x,closed.position.z-d.hinge.z),d.width/2);}
+  close(doors[1].bottom-doors[0].bottom,model[1].elevation-model[0].elevation);assert.equal(JSON.stringify(b),before);
+ }
+});
+test('closed doors block people and cars; open leaves free the opening but remain solid beside it',()=>{
+ const w=houseWorld(),d=w.doors[0],stopped=walk(w,w.start,0,-.05);assert.ok(stopped.z>0);assert.equal(w.vehicleClear('car',{x:3,z:0},0,.6,1,1),false);
+ w.setDoorAngle(d.key,doorOpenAngle);assert.ok(walk(w,w.start,0,-.05).z<-.9);assert.ok(w.vehicleClear('car',{x:3,z:0},0,.5,1,1));const leaf=doorLeaf(d,doorOpenAngle);assert.equal(w.isClear(leaf.position,{base:0,height:1.7}),false);
+ const rebuilt=createWalkWorld(w.model,w.selection,w.doorAngles);close(rebuilt.doorAngles.get(d.key),doorOpenAngle);rebuilt.setDoorAngle(d.key,0);close(w.doorAngles.get(d.key),doorOpenAngle);assert.ok(!rebuilt.canOccupy({x:3,z:0}));
+});
+test('door sweep refuses intermediate thin obstacles and the controlled person when opening or closing',()=>{
+ const obstacle={...wall,id:'obstacle',a:{x:2.75,y:-.5},b:{x:3.05,y:-.5},thickness:.05},w=houseWorld({walls:[wall,obstacle]}),d=w.doors[0];
+ for(const angle of [0,doorOpenAngle]){const leaf=doorLeaf(d,angle);assert.ok(w.boxClear(d.key,leaf.position,leaf.yaw,leaf.width,leaf.depth,d.bottom,d.top));}
+ assert.match(selectedDoor(w,initialMotion(w),d.key).reason,/muro, mueble/);
+ const free=houseWorld(),door=free.doors[0],inside={...initialMotion(free),position:{x:3,z:-.4}};assert.match(doorSweepReason(free,door,0,doorOpenAngle,inside),/Apartate/);
+ free.setDoorAngle(door.key,doorOpenAngle);assert.match(doorSweepReason(free,door,doorOpenAngle,0,{...inside,position:{x:3,z:0}}),/Apartate/);assert.equal(free.doorAngles.get(door.key),doorOpenAngle);
+});
+test('door selection explains distance, posture, wrong floor and intervening walls without moving anything',()=>{
+ const w=houseWorld(),m=initialMotion(w),key=w.doors[0].key;assert.ok(selectedDoor(w,m,key).door);
+ assert.match(selectedDoor(w,{...m,position:{x:3,z:4}},key).reason,/Acercate/);assert.match(selectedDoor(w,{...m,crouched:true},key).reason,/de pie/);assert.match(selectedDoor(w,{...m,grounded:false},key).reason,/apoyado/);assert.match(selectedDoor(w,{...m,feet:3},key).reason,/planta/);
+ const blocked=houseWorld({walls:[wall,{...wall,id:'barrier',a:{x:2.5,y:.5},b:{x:3.5,y:.5},thickness:.05}]});assert.match(selectedDoor(blocked,initialMotion(blocked),blocked.doors[0].key).reason,/entre la persona/);close(w.doorAngles.get(key),0);
+});
+test('E animates the selected door, locks repeat and motion, enables passage and resets temporary state',()=>{
+ const w=houseWorld(),before=JSON.stringify(w.model),changes=[],h=harness([],false,w,undefined,c=>changes.push(c));h.controller.selectTarget(doorTarget(w));assert.ok(h.reports.at(-1).door.canToggle);h.canvas.fire('keydown',{code:'KeyE'});assert.ok(h.reports.at(-1).door.active);
+ h.tick(0);h.controller.input('forward',true);h.canvas.fire('keydown',{code:'KeyE',repeat:true});h.controller.act('jump');h.controller.selectTarget(null);for(let i=1;i<=12;i++)h.tick(i*50);
+ assert.ok(h.reports.at(-1).door.open);assert.ok(!h.reports.at(-1).door.active);close(changes.at(-1).angle,doorOpenAngle);close(h.avatar.root.position.z,1);h.tick(650);close(h.avatar.root.position.z,1);
+ h.controller.input('forward',true);for(let i=14;i<=45;i++)h.tick(i*50);h.controller.input('forward',false);assert.ok(h.avatar.root.position.z<-.9);
+ h.controller.reset();close(w.doorAngles.get(w.doors[0].key),0);close(changes.at(-1).angle,0);close(h.avatar.root.position.z,1);assert.equal(JSON.stringify(w.model),before);h.controller.dispose();
+});
+test('blur cancels a moving door to its previous angle, and closing cannot sweep across the person',()=>{
+ const w=houseWorld(),changes=[],h=harness([],false,w,undefined,c=>changes.push(c));h.controller.selectTarget(doorTarget(w));h.controller.act('climb');h.tick(0);h.tick(50);h.tick(100);assert.ok(changes.at(-1).angle>0);h.win.fire('blur');close(changes.at(-1).angle,0);assert.ok(!h.reports.at(-1).door.active);
+ h.controller.act('climb');for(let i=3;i<=16;i++)h.tick(i*50);close(w.doorAngles.get(w.doors[0].key),doorOpenAngle);h.controller.act('climb');h.tick(850);h.tick(900);h.doc.fire('visibilitychange');close(changes.at(-1).angle,doorOpenAngle);assert.ok(h.reports.at(-1).door.open);
+ h.controller.input('forward',true);for(let i=19;i<=32;i++)h.tick(i*50);h.controller.input('forward',false);assert.ok(!h.reports.at(-1).door.canToggle);assert.match(h.reports.at(-1).interaction.reason,/Apartate/);h.controller.act('climb');assert.ok(!h.reports.at(-1).door.active);h.controller.dispose();close(changes.at(-1).angle,0);assert.equal(h.queued,false);
+});
+test('driving and exiting preserve open house doors, while tour reset restores both objects',()=>{
+ const doorWall={...wall,a:{x:-2.5,y:-3},b:{x:-2.5,y:3}},w=world(carProject({walls:[doorWall],openings:[{...houseOpening,swing:'positive'}]})),changes=[],h=harness([],false,w,undefined,c=>changes.push(c));
+ h.controller.selectTarget(doorTarget(w));assert.ok(h.reports.at(-1).door.canToggle);h.controller.act('climb');h.tick(0);for(let i=1;i<=12;i++)h.tick(i*50);h.controller.selectTarget({key:carIn(w).key,name:'Auto',kind:'smallCar'});h.controller.act('climb');h.finishAccess();assert.ok(h.reports.at(-1).vehicle.active);h.controller.act('climb');h.finishAccess();h.controller.selectTarget(doorTarget(w));assert.ok(h.reports.at(-1).door.open);h.controller.reset();close(changes.at(-1).angle,0);h.controller.dispose();
+});
+test('rendered door leaves match collision transforms, remain pickable and restore exactly',()=>{
+ const w=houseWorld(),group=new Group(),scene=addDoorScene(group,w.model),d=w.doors[0],panel=scene.selectable[0];group.updateMatrixWorld(true);const original=panel.matrixWorld.clone(),ray=new Raycaster(new Vector3(3,1,1),new Vector3(0,0,-1));assert.equal(ray.intersectObjects(scene.selectable,false)[0].object.userData.selection.elementId,'door');
+ for(const angle of [.4,1,doorOpenAngle]){scene.setAngle(d.key,angle);const position=panel.getWorldPosition(new Vector3()),leaf=doorLeaf(d,angle);close(position.x,leaf.position.x);close(position.z,leaf.position.z);close(position.y,(d.bottom+d.top)/2);}
+ assert.equal(ray.intersectObjects(scene.selectable,false).length,0);scene.setAngle(d.key,0);assert.deepEqual(panel.matrixWorld.elements,original.elements);scene.setSelected({floorId:d.floorId,elementId:d.elementId});assert.equal(panel.material.color.getHexString(),'c18a50');scene.setSelected(null);assert.equal(panel.material.color.getHexString(),'bda789');
+ const geometries=new Set(),materials=new Set();group.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material);});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());
 });
