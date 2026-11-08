@@ -1,3 +1,4 @@
+import {modelDoors,doorLeaf,doorOpenAngle} from './doors';
 import {climbSurface} from './climb';
 import type {ClimbSurface} from './climb';
 import {stairTreads} from './stairGeometry';
@@ -17,7 +18,7 @@ type Block={key?:string;x:number;z:number;cos:number;sin:number;halfW:number;hal
 type Support={points:Point[];holes:Point[][];height:number;treads?:Block[];entry?:{height:number;outside:(q:Point)=>boolean}};
 function contactTop(b:Block,p:Point,r:number){const dx=p.x-b.x,dz=p.y-b.z,x=dx*b.cos+dz*b.sin,z=-dx*b.sin+dz*b.cos,qx=clamp(x,-b.halfW,b.halfW),qz=clamp(z,-b.halfD,b.halfD);if(Math.hypot(x-qx,z-qz)>=r)return null;return b.top({x:b.x+qx*b.cos-qz*b.sin,y:b.z+qx*b.sin+qz*b.cos},qx);}
 /** Architectural visibility never changes collision geometry or connected walking surfaces. */
-export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
+export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection,initialDoors:ReadonlyMap<string,number>=new Map()){
  const floor=model.find(f=>f.id===selection.floorId),item=floor?.furniture.find(f=>f.id===selection.elementId&&f.kind==='person');
  if(!floor||!item)throw new Error('Seleccioná una persona para iniciar el recorrido.');
  const height=furnitureHeight(item),radius=Math.max(.15,Math.min(.45,item.width*.45)),base=floor.elevation+(item.elevation??0),blocks:Block[]=[],stairSupports:Support[]=[],climbSurfaces:ClimbSurface[]=[];
@@ -40,6 +41,13 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
    }else blocks.push({key:JSON.stringify([f.id,i.id]),x:i.x,z:i.y,cos,sin,halfW:i.width/2,halfD:i.depth/2,bottom,top:()=>bottom+furnitureHeight(i)});
   }
  }
+ const doors=modelDoors(model),doorAngles=new Map<string,number>(),doorBlocks=new Map<string,Block>();
+ function setDoorAngle(key:string,angle:number){
+  const door=doors.find(d=>d.key===key);if(!door||!Number.isFinite(angle))return;
+  const value=Math.max(0,Math.min(doorOpenAngle,angle)),leaf=doorLeaf(door,value);doorAngles.set(key,value);doorBlocks.set(key,{key,x:leaf.position.x,z:leaf.position.z,cos:Math.cos(leaf.yaw),sin:Math.sin(leaf.yaw),halfW:leaf.width/2,halfD:leaf.depth/2,bottom:leaf.bottom,top:()=>leaf.top});
+ }
+ for(const door of doors)setDoorAngle(door.key,initialDoors.get(door.key)??0);
+ function* allBlocks(){yield* blocks;yield* doorBlocks.values();}
  const plates=model.flatMap(f=>f.plates.map(p=>({...p,level:f.elevation})));
  const groundLevel=model[0]?.elevation??0;
  const supports:Support[]=[...plates.filter(p=>p.kind==='floor').map(p=>({points:p.points,holes:p.holes,height:p.level+p.top})),...stairSupports];
@@ -71,7 +79,7 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
  }
  function verticalIntervals(pos:WalkPoint,ignoreKey?:string){
   const p={x:pos.x,y:pos.z},spans:{bottom:number;top:number}[]=[];
-  for(const b of blocks){if(ignoreKey&&b.key===ignoreKey)continue;const top=contactTop(b,p,radius);if(top!==null)spans.push({bottom:b.bottom,top});}
+  for(const b of allBlocks()){if(ignoreKey&&b.key===ignoreKey)continue;const top=contactTop(b,p,radius);if(top!==null)spans.push({bottom:b.bottom,top});}
   for(const plate of plates){
    const footprint=[...contacts(p,radius,plate.points),...Array.from({length:24},(_,i)=>({x:p.x+Math.cos(i*Math.PI/12)*radius,y:p.y+Math.sin(i*Math.PI/12)*radius})).filter(q=>inside(q,plate.points))];
    for(const q of footprint){if(plate.holes.some(h=>inside(q,h)))continue;const bottom=plate.level+(plate.planes?Math.min(...plate.planes.map(v=>v.a*q.x+v.b*q.y+v.c)):plate.bottom);spans.push({bottom,top:bottom+plate.top-plate.bottom});}
@@ -86,10 +94,24 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
   return isClear(pos,body)&&navigationSupport(pos,body.navigation??base,body.base+maxWalkStep)!==null;
  }
 
+ function boxClear(key:string,position:WalkPoint,yaw:number,width:number,depth:number,bottom:number,top:number){
+  const c=Math.cos(yaw),s=Math.sin(yaw),points=[[-width/2,-depth/2],[width/2,-depth/2],[width/2,depth/2],[-width/2,depth/2]].map(([x,z])=>({x:position.x+x*c-z*s,y:position.z+x*s+z*c}));
+  for(const b of allBlocks()){
+   if(b.key===key||b.bottom>=top-epsilon)continue;
+   const shape=[[-b.halfW,-b.halfD],[b.halfW,-b.halfD],[b.halfW,b.halfD],[-b.halfW,b.halfD]].map(([x,z])=>({x:b.x+x*b.cos-z*b.sin,y:b.z+x*b.sin+z*b.cos}));
+   if(polygonsTouch(points,shape)&&Math.max(...shape.map(p=>b.top(p,(p.x-b.x)*b.cos+(p.y-b.z)*b.sin)))>bottom+epsilon)return false;
+  }
+  for(const plate of plates){
+   if(!polygonsTouch(points,plate.points))continue;
+   const levels=[...points,...plate.points].map(q=>plate.level+(plate.planes?Math.min(...plate.planes.map(v=>v.a*q.x+v.b*q.y+v.c)):plate.bottom));
+   if(Math.min(...levels)<top-epsilon&&Math.max(...levels)+plate.top-plate.bottom>bottom+epsilon)return false;
+  }
+  return true;
+ }
  function vehicleClear(key:string,position:WalkPoint,yaw:number,width:number,depth:number,height:number){
   if(![position.x,position.z,yaw,width,depth,height].every(Number.isFinite)||width<=0||depth<=0||height<=0)return false;
   const c=Math.cos(yaw),s=Math.sin(yaw),points=[[-width/2-.015,-depth/2-.015],[width/2+.015,-depth/2-.015],[width/2+.015,depth/2+.015],[-width/2-.015,depth/2+.015]].map(([x,z])=>({x:position.x+x*c-z*s,y:position.z+x*s+z*c}));
-  for(const b of blocks){
+  for(const b of allBlocks()){
    if(b.key===key)continue;
    const shape=[[-b.halfW,-b.halfD],[b.halfW,-b.halfD],[b.halfW,b.halfD],[-b.halfW,b.halfD]].map(([x,z])=>({x:b.x+x*b.cos-z*b.sin,y:b.z+x*b.sin+z*b.cos}));
    if(b.bottom>=groundLevel+height-.001||!polygonsTouch(points,shape))continue;
@@ -104,7 +126,7 @@ export function createWalkWorld(model:BuildingVolumes,selection:ModelSelection){
   }
   return true;
  }
- return {model,selection,vehicleClear,item:item as Furniture,base,height,radius,groundLevel,climbSurfaces,start:{x:item.x,z:item.y},canOccupy,isClear,navigationSupport,verticalIntervals};
+ return {model,selection,doors,doorAngles,setDoorAngle,boxClear,vehicleClear,item:item as Furniture,base,height,radius,groundLevel,climbSurfaces,start:{x:item.x,z:item.y},canOccupy,isClear,navigationSupport,verticalIntervals};
 }
 /** Short substeps prevent tunneling; axis fallback lets the body slide along obstacles. */
 export function moveWalker(world:WalkWorld,from:WalkPoint,dx:number,dz:number,body?:{base:number;height:number}):WalkPoint{

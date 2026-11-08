@@ -86,7 +86,7 @@ export function climbMotion(action:ClimbAction,elapsed:number):WalkMotion{
  return copy(action.to);
 }
 
-export type WalkTarget={key:string;name:string;kind:Furniture['kind']};
+export type WalkTarget={key:string;name:string;kind:Furniture['kind']|'door'};
 /** Selection replaces the facing requirement, never the collision/support checks. */
 export function selectedClimb(world:WalkWorld,motion:WalkMotion,yaw:number,target:WalkTarget){
  const s=world.climbSurfaces.find(s=>s.key===target.key);

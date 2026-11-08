@@ -5,7 +5,7 @@ import type {WalkTarget} from './climb';
 import {furnitureHeight} from './furnitureHeights';
 
 export type SeatPlace={key:string;name:string;item:Furniture;position:WalkPoint;yaw:number;base:number;height:number;x:number;z:number};
-export const isSeatKind=(kind:Furniture['kind'])=>['chair','armchair','sofa','sofa3'].includes(kind);
+export const isSeatKind=(kind:Furniture['kind']|'door')=>['chair','armchair','sofa','sofa3'].includes(kind);
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 function point(s:Pick<SeatPlace,'item'|'yaw'>,x:number,z:number):WalkPoint{return {x:s.item.x+x*Math.cos(s.yaw)-z*Math.sin(s.yaw),z:s.item.y+x*Math.sin(s.yaw)+z*Math.cos(s.yaw)};}
 function local(item:Furniture,p:WalkPoint){const yaw=item.rotation*Math.PI/180,dx=p.x-item.x,dz=p.z-item.y;return {x:dx*Math.cos(yaw)+dz*Math.sin(yaw),z:-dx*Math.sin(yaw)+dz*Math.cos(yaw)};}

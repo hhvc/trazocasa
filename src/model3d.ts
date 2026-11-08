@@ -5,7 +5,7 @@ export type WallSolid = {from:number;to:number;bottom:number;top:number;topEnd?:
 export function wallVolumes(plan:Plan) {
  return plan.walls.map(w=>{
   const length=distance(w.a,w.b),height=effectiveWallHeight(plan,w),profile=wallRoofProfile(plan,w);
-  const openings=plan.openings.filter(o=>o.wallId===w.id).map(o=>({id:o.id,kind:o.kind,from:o.t*length-o.width/2,to:o.t*length+o.width/2,bottom:openingSill(o),top:openingSill(o)+openingHeight(o)})).sort((a,b)=>a.from-b.from);
+  const openings=plan.openings.filter(o=>o.wallId===w.id).map(o=>({id:o.id,kind:o.kind,hinge:o.hinge??'start',swing:o.swing??'negative',from:o.t*length-o.width/2,to:o.t*length+o.width/2,bottom:openingSill(o),top:openingSill(o)+openingHeight(o)})).sort((a,b)=>a.from-b.from);
   const solids:WallSolid[]=[];
   const add=(from:number,to:number,bottom:number,top:number,follow=false)=>{
    if(!follow){if(to-from>1e-8&&top-bottom>1e-8)solids.push({from,to,bottom,top});return;}
