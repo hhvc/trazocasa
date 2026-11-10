@@ -1,0 +1,5 @@
+.dxf-modal { text-align: left; max-height: 90dvh; overflow-y: auto; }
+.dxf-modal select { display: block; width: 100%; min-height: 44px; margin: 8px 0 18px; padding: 8px; border: 1px solid #dce1d4; border-radius: 6px; background: white; color: inherit; font: inherit; }
+.dxf-modal ul { padding-left: 20px; line-height: 1.6; }
+.dxf-modal li + li { margin-top: 10px; }
+.dxf-modal > .primary { min-height: 44px; }

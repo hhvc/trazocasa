@@ -449,3 +449,14 @@ En **Controlar persona**, acercarse de pie por delante de una **silla, sillón i
 Mientras está sentada, la persona no camina, salta, se agacha ni selecciona otro objeto. Perder el foco libera los controles y mantiene la postura. La selección muestra el motivo si falta cercanía, espacio, apoyo o si las dimensiones del mueble no se adaptan a la figura; el botón Sentarse queda deshabilitado. Se comprueban las trayectorias, muros, otros muebles, techos y huecos también en plantas superiores.
 
 La postura es temporal y no altera el proyecto ni su historial. La entrada y salida cambian de postura directamente, sin una transición animada. Se reserva espacio conservador de cuerpo completo para el acceso, y se requiere que el asiento esté apoyado al nivel del piso de la persona; esto no permite sentarse en camas, inodoros ni vehículos. No se agregan modelos externos ni dependencias.
+
+
+### Abrir y cerrar puertas de la vivienda
+
+En **Controlar persona**, acercarse de pie a una puerta, tocar su hoja y usar **Abrir puerta / Cerrar puerta / E**. La hoja respeta la bisagra y el lado de apertura definidos en el plano 2D y gira 90° en una animación breve.
+
+Las puertas comienzan cerradas e impiden el paso de personas y vehículos. Al abrirse, la hoja sigue siendo un obstáculo en su nueva posición. Antes de moverla se comprueba todo su recorrido frente a muros, muebles, otras puertas y la persona controlada. Si el cuerpo ocupa ese recorrido, hay que apartarse. También se comprueba la cercanía, la planta y el acceso a la hoja.
+
+Durante la animación se bloquean el desplazamiento, los saltos y las interacciones repetidas. Perder el foco cancela el movimiento y restaura el ángulo anterior. Las puertas abiertas permanecen así durante el recorrido, incluso al conducir y salir de un auto. **Volver al inicio**, terminar el recorrido o cerrar el visor devuelve todas las puertas a su estado cerrado. El estado de apertura es temporal y no cambia el archivo del proyecto ni el historial de edición.
+
+Esta etapa incluye puertas de una hoja. No abre ventanas, portones ni puertas corredizas. El espacio frente a losas y cubiertas se comprueba de forma conservadora.

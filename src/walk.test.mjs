@@ -486,8 +486,8 @@ test('E animates the selected door, locks repeat and motion, enables passage and
 });
 test('blur cancels a moving door to its previous angle, and closing cannot sweep across the person',()=>{
  const w=houseWorld(),changes=[],h=harness([],false,w,undefined,c=>changes.push(c));h.controller.selectTarget(doorTarget(w));h.controller.act('climb');h.tick(0);h.tick(50);h.tick(100);assert.ok(changes.at(-1).angle>0);h.win.fire('blur');close(changes.at(-1).angle,0);assert.ok(!h.reports.at(-1).door.active);
- h.controller.act('climb');for(let i=3;i<=16;i++)h.tick(i*50);close(w.doorAngles.get(w.doors[0].key),doorOpenAngle);h.controller.act('climb');h.tick(850);h.tick(900);h.doc.fire('visibilitychange');close(changes.at(-1).angle,doorOpenAngle);assert.ok(h.reports.at(-1).door.open);
- h.controller.input('forward',true);for(let i=19;i<=32;i++)h.tick(i*50);h.controller.input('forward',false);assert.ok(!h.reports.at(-1).door.canToggle);assert.match(h.reports.at(-1).interaction.reason,/Apartate/);h.controller.act('climb');assert.ok(!h.reports.at(-1).door.active);h.controller.dispose();close(changes.at(-1).angle,0);assert.equal(h.queued,false);
+ h.controller.act('climb');for(let i=3;i<=16;i++)h.tick(i*50);close(w.doorAngles.get(w.doors[0].key),doorOpenAngle);h.controller.act('climb');assert.ok(h.reports.at(-1).door.active);h.tick(850);h.tick(900);h.doc.fire('visibilitychange');close(changes.at(-1).angle,doorOpenAngle);assert.ok(h.reports.at(-1).door.open);
+ h.controller.input('forward',true);for(let i=19;i<=32;i++)h.tick(i*50);h.controller.input('forward',false);h.tick(1750);assert.ok(!h.reports.at(-1).door.canToggle);assert.match(h.reports.at(-1).interaction.reason,/Apartate/);h.controller.act('climb');assert.ok(!h.reports.at(-1).door.active);h.controller.dispose();close(changes.at(-1).angle,0);assert.equal(h.queued,false);
 });
 test('driving and exiting preserve open house doors, while tour reset restores both objects',()=>{
  const doorWall={...wall,a:{x:-2.5,y:-3},b:{x:-2.5,y:3}},w=world(carProject({walls:[doorWall],openings:[{...houseOpening,swing:'positive'}]})),changes=[],h=harness([],false,w,undefined,c=>changes.push(c));
@@ -498,4 +498,10 @@ test('rendered door leaves match collision transforms, remain pickable and resto
  for(const angle of [.4,1,doorOpenAngle]){scene.setAngle(d.key,angle);const position=panel.getWorldPosition(new Vector3()),leaf=doorLeaf(d,angle);close(position.x,leaf.position.x);close(position.z,leaf.position.z);close(position.y,(d.bottom+d.top)/2);}
  assert.equal(ray.intersectObjects(scene.selectable,false).length,0);scene.setAngle(d.key,0);assert.deepEqual(panel.matrixWorld.elements,original.elements);scene.setSelected({floorId:d.floorId,elementId:d.elementId});assert.equal(panel.material.color.getHexString(),'c18a50');scene.setSelected(null);assert.equal(panel.material.color.getHexString(),'bda789');
  const geometries=new Set(),materials=new Set();group.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material);});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());
+});
+
+test('an open door can be closed from the front without requiring the body to fit beside the hinge',()=>{
+ const w=houseWorld(),d=w.doors[0];w.setDoorAngle(d.key,doorOpenAngle);
+ for(const z of [.6,1]){const result=selectedDoor(w,{...initialMotion(w),position:{x:3,z}},d.key);assert.ok(result.door,result.reason);close(result.to,0);}
+ const blocked=houseWorld({walls:[wall,{...wall,id:'partition',a:{x:2.5,y:.3},b:{x:3.5,y:.3},thickness:.05}]});blocked.setDoorAngle(blocked.doors[0].key,doorOpenAngle);assert.match(selectedDoor(blocked,initialMotion(blocked),blocked.doors[0].key).reason,/entre la persona/);
 });

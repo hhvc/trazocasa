@@ -36,8 +36,8 @@ export function selectedDoor(world:WalkWorld,motion:WalkMotion,key:string){
  if(Math.abs(motion.feet-(door.bottom-.012))>.25)return fail('Acercate a la puerta desde su planta.');
  const point=nearest(motion.position,doorLeaf(door,from)),distance=Math.hypot(point.x-motion.position.x,point.z-motion.position.z);
  if(distance>world.radius+1.1)return fail('Acercate a la hoja para abrir o cerrar la puerta.');
- // Only approach as far as a full body can stand; the selected leaf itself is ignored.
- const reach=Math.max(0,distance-world.radius-.035),steps=Math.max(1,Math.ceil(reach/.025));
- for(let i=0;i<=steps;i++){const t=distance?reach/distance*i/steps:0,p={x:motion.position.x+(point.x-motion.position.x)*t,z:motion.position.z+(point.z-motion.position.z)*t};if(!world.isClear(p,{base:motion.feet,height:world.height},door.key))return fail('Hay un obstáculo entre la persona y la puerta.');}
+ // Check the reach of the hand; the body need not fit beside an open leaf's hinge.
+ const hand=motion.feet+world.height*.7,handle=door.bottom+(door.top-door.bottom)*.47,center={x:(point.x+motion.position.x)/2,z:(point.z+motion.position.z)/2},yaw=Math.atan2(point.z-motion.position.z,point.x-motion.position.x);
+ if(!world.boxClear(door.key,center,yaw,Math.max(.001,distance),.04,Math.min(hand,handle)-.03,Math.max(hand,handle)+.03))return fail('Hay un obstáculo entre la persona y la puerta.');
  const reason=doorSweepReason(world,door,from,to,motion);return reason?fail(reason):{door,from,to,reason:''};
 }
