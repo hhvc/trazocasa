@@ -1,0 +1,9 @@
+.ifc-modal { text-align: left; max-height: 90dvh; overflow-y: auto; }
+.ifc-modal ul { padding-left: 20px; line-height: 1.6; }
+.ifc-modal li + li { margin-top: 10px; }
+.ifc-modal > .primary { min-height: 44px; }
+.ifc-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+.ifc-counts div { background: #eef1e8; padding: 10px; border-radius: 6px; }
+.ifc-counts dt { color: #65795c; font-size: 12px; }
+.ifc-counts dd { font-size: 20px; font-weight: 600; margin: 4px 0 0; }
+@media (max-width: 420px) { .ifc-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
